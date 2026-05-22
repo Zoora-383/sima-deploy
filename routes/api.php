@@ -6,8 +6,6 @@ use App\Http\Middleware\JwtCheckMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/user', [AuthController::class, 'store']);
-
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
@@ -17,6 +15,10 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware(JwtCheckMiddleware::class)->group(function () {
-    Route::get('/me', [UserController::class, 'show']);
+Route::prefix('user')->group(function () {
+    Route::middleware(JwtCheckMiddleware::class)->group(function () {
+        Route::delete('/delete', [UserController::class, 'destroy']);
+        Route::post('/add', [UserController::class, 'store']);
+        Route::get('/me', [UserController::class, 'show']);
+    });
 });

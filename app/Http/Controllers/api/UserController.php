@@ -3,8 +3,14 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\User\UserStoreRequest;
+use App\Http\Resources\UserResource;
 use App\Services\UserService;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserController extends Controller
 {
@@ -15,9 +21,79 @@ class UserController extends Controller
         $this->userService = $userService;
     }
 
-    public function show(Request $request)
+    public function store(UserStoreRequest $request)
     {
-        $result = $this->userService->getMyProfile(auth('api')->id());
-        return response()->json($result, $result['status'] === 'success' ? 200 : 500);
+        try {
+            $currentUser = auth('api')->user();
+            $newAccount = $this->userService->addAccount($request->validated(), $currentUser);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Created account successfully',
+                'data'    => [
+                    'user' => new UserResource($newAccount)
+                ]
+            ], 201);
+        } catch (AccessDeniedHttpException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage()
+            ], 403);
+        } catch (Exception $e) {
+            Log::error('User Store Error: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to create account.'
+            ], 500);
+        }
+    }
+
+    public function show()
+    {
+        try {
+            $userId = auth('api')->id();
+            $user = $this->userService->getProfile($userId);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Get profile successfully',
+                'data'    => new UserResource($user)
+            ]);
+        } catch (NotFoundHttpException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage()
+            ], 404);
+        } catch (Exception $e) {
+            Log::error('User Show Error: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Server error'
+            ], 500);
+        }
+    }
+
+    public function destroy()
+    {
+        try {
+            $userId = auth('api')->id();
+            $this->userService->deleteAccount($userId);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Delete account successfully'
+            ]);
+        } catch (NotFoundHttpException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage()
+            ], 404);
+        } catch (Exception $e) {
+            Log::error('User Destroy Error: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Server error'
+            ], 500);
+        }
     }
 }

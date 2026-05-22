@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\UserResource;
 use App\Services\AuthService;
+use Exception;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Tymon\JWTAuth\Exceptions\JWTException;
 
 class AuthController extends Controller
 {
@@ -16,54 +21,89 @@ class AuthController extends Controller
         $this->authService = $authService;
     }
 
-    public function store(Request $request)
+    public function login(LoginRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name'  => 'required|string|min:4',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
-            'role'  => 'required|string|in:super-admin,admin,kasi,kep_pustikom',
-            'phone' => 'string|regex:/^[0-9]{10,11}$/|unique:users,phone',
-        ]);
+        try {
+            $identifierRequest = $request->input('identifier');
+            $identifier = filter_var($identifierRequest, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
-        if ($validator->fails()) {
+            $credentials = [
+                $identifier => $identifierRequest,
+                'password'  => $request->input('password')
+            ];
+
+            $guard = auth('api');
+            $token = $this->authService->login($credentials, $guard);
+            $user  = $guard->user();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Login successfully',
+                'data'    => [
+                    'user'        => new UserResource($user),
+                    'accessToken' => $token
+                ]
+            ]);
+        } catch (AuthenticationException $e) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Invalid field',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        $result = $this->authService->addAccount($request->all());
-        return response()->json($result, $result['status'] === 'success' ? 201 : 500);
-    }
-
-    public function login(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'email'    => 'required|email|exists:users,email',
-            'password' => 'required|string'
-        ]);
-
-        if ($validator->fails()) {
+                'message' => $e->getMessage()
+            ], 401);
+        } catch (Exception $e) {
+            Log::error('Login Fatal Error: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Invalid field',
-                'errors'  => $validator->errors()
-            ], 422);
+                'message' => 'Something went wrong on our server.'
+            ], 500);
         }
-
-        $result = $this->authService->login($request->only('email', 'password'));
-        return response()->json($result, $result['status'] === 'success' ? 200 : 500);
     }
 
-    public function logout(Request $request) {
-        $result = $this->authService->logout();
-        return response()->json($result, $result['status'] === 'success' ? 200 : 500);
+    public function logout()
+    {
+        try {
+            $this->authService->logout(auth('api'));
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Logout successfully'
+            ]);
+        } catch (JWTException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Could not invalidate token'
+            ], 401);
+        } catch (Exception $e) {
+            Log::error('Logout Error: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Server error during logout'
+            ], 500);
+        }
     }
 
-    public function refresh(Request $request) {
-        $result = $this->authService->refresh();
-        return response()->json($result, $result['status'] === 'success' ? 200 : 500);
+    public function refresh()
+    {
+        try {
+            $newToken = $this->authService->refresh(auth('api'));
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Refresh token successfully',
+                'data'    => [
+                    'accessToken' => $newToken
+                ]
+            ]);
+        } catch (JWTException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Token is invalid or expired'
+            ], 401);
+        } catch (Exception $e) {
+            Log::error('Refresh Token Error: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Server error during token refresh'
+            ], 500);
+        }
     }
 }
