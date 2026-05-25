@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\api\AuthController;
+use App\Http\Controllers\api\RoleController;
 use App\Http\Controllers\api\UserController;
 use App\Http\Middleware\JwtCheckMiddleware;
 use Illuminate\Http\Request;
@@ -15,10 +16,13 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::prefix('user')->group(function () {
-    Route::middleware(JwtCheckMiddleware::class)->group(function () {
-        Route::delete('/delete', [UserController::class, 'destroy']);
-        Route::post('/add', [UserController::class, 'store']);
-        Route::get('/me', [UserController::class, 'show']);
-    });
+
+Route::middleware(JwtCheckMiddleware::class)->group(function () {
+    // CRUD Users
+    Route::delete('/users', [UserController::class, 'destroy']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::get('/users', [UserController::class, 'show']);
+
+    // CRUD Roles
+    Route::post('/roles', [RoleController::class, 'store']);
 });

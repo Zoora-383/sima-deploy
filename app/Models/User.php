@@ -6,19 +6,18 @@ namespace App\Models;
 // use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-#[Fillable(['uuid', 'name', 'username', 'email', 'role', 'phone', 'password'])]
+#[Fillable(['uuid', 'role_id', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
 
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasUuids;
+    use HasFactory, Notifiable;
 
     /**
      * Get the attributes that should be cast.
@@ -33,12 +32,7 @@ class User extends Authenticatable implements JWTSubject
         ];
     }
 
-    public function uniqueIds()
-    {
-        return ['uuid'];
-    }
-
-    public function getRouteKey()
+    public function getRouteKeyName()
     {
         return 'uuid';
     }
@@ -51,5 +45,15 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims()
     {
         return [];
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function userProfile()
+    {
+        return $this->hasOne(UserProfile::class);
     }
 }

@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('maintenance_request', function (Blueprint $table) {
+            $table->id();
+            $table->string('uuid')->unique();
+            $table->foreignId('asset_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('requester_id')->constrained('users', 'id')->cascadeOnDelete();
+            $table->string('title');
+            $table->enum('priories', ['low', 'medium', 'high']);
+            $table->enum('type', ['korektif', 'preventif']);
+            $table->text('description')->nullable();
+            $table->integer('estimated_day')->nullable();
+            $table->date('target_completion_expectations')->nullable();
+            $table->decimal('total_estimated_cost', 10, 2)->nullable();
+            $table->enum('status', ['pending_kasi', 'pending_pust', 'in_progress', 'done', 'rejected']);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('maintenance_request');
+    }
+};

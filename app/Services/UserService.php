@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\UserProfile;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserService
@@ -20,23 +22,19 @@ class UserService
      */
     public function addAccount(array $data, User $currentUser)
     {
-        if ($currentUser->role !== 'super-admin') {
+        $roleName = $currentUser->role->name ?? '';
+        if ($roleName !== 'super-admin') {
             throw new AccessDeniedHttpException('Only super-admin can create new accounts.');
         }
 
         try {
             DB::beginTransaction();
 
-            $username = $this->generateUniqueUsername($data['email']);
-
             $newAccount = User::create([
                 'uuid'     => Str::uuid()->toString(),
-                'name'     => $data['name'],
+                'role_id'     => $data['role'],
                 'email'    => $data['email'],
-                'username' => $username,
                 'password' => Hash::make($data['password']),
-                'role'     => $data['role'],
-                'phone'    => !empty($data['phone']) ? '+62' . $data['phone'] : null,
             ]);
 
             DB::commit();
@@ -53,12 +51,47 @@ class UserService
         $baseUsername = Str::before($email, '@');
         $username = Str::slug($baseUsername);
 
-        $checkUniqueUsername = User::where('username', $username)->count();
+        $checkUniqueUsername = UserProfile::where('username', $username)->count();
         if ($checkUniqueUsername > 0) {
             $username = $username . '-' . ($checkUniqueUsername + 1);
         }
 
         return $username;
+    }
+
+    /**
+     * @param array $data
+     * @param User $currentUser
+     * @return UserProfile
+     * @throws ConflictHttpException|Exception
+     */
+    public function addMyProfile(array $data, User $currentUser)
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($currentUser->userProfile()->exists()) {
+                throw new ConflictHttpException('Kamu sudah ada profile, gunakan yang sudah ada yahh');
+            }
+
+            $username = $this->generateUniqueUsername($currentUser->email);
+
+            $profile = $currentUser->userProfile()->create([
+                'uuid'     => Str::uuid()->toString(),
+                'username' => $username,
+                'fullname' => $data['fullname'],
+                'phone'    => $data['phone'],
+                'location' => $data['location'],
+                'avatar_url' => $data['avatar_url']
+            ]);
+
+            DB::commit();
+
+            return $profile;
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     /**

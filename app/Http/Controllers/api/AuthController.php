@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\api;
 
+// use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Http\Resources\UserResource;
+use App\Models\User;
 use App\Services\AuthService;
 use Exception;
 use Illuminate\Auth\AuthenticationException;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
@@ -25,10 +26,24 @@ class AuthController extends Controller
     {
         try {
             $identifierRequest = $request->input('identifier');
-            $identifier = filter_var($identifierRequest, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+            $password = $request->input('password');
+
+            $user = User::where('email', $identifierRequest)
+                ->orWhereHas('userProfile', function ($q) use ($identifierRequest) {
+                    $q->where('username', $identifierRequest); // Sudah pakai titik koma (;)
+                })->first();
+
+
+            if (!$user) {
+                return response()->json(['message' => 'Akun kamu tidak ditemukan'], 401);
+            }
+
+            if (!Hash::check($password, $user->password)) {
+                return response()->json(['message' => 'Password yang dimasukan salah'], 401);
+            }
 
             $credentials = [
-                $identifier => $identifierRequest,
+                'email'     => $user->email,
                 'password'  => $request->input('password')
             ];
 
@@ -40,7 +55,6 @@ class AuthController extends Controller
                 'status'  => 'success',
                 'message' => 'Login successfully',
                 'data'    => [
-                    'user'        => new UserResource($user),
                     'accessToken' => $token
                 ]
             ]);

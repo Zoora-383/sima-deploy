@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\api;
 
+// use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\User\ProfileStoreRequest;
 use App\Http\Requests\User\UserStoreRequest;
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use App\Services\UserService;
 use Exception;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -41,6 +43,27 @@ class UserController extends Controller
             ], 403);
         } catch (Exception $e) {
             Log::error('User Store Error: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to create account.'
+            ], 500);
+        }
+    }
+
+    public function storeProfile(ProfileStoreRequest $request)
+    {
+        try {
+            $currentUser = auth('api')->user();
+            $this->userService->addMyProfile($request->validated(), $currentUser);
+            $user = User::with(['role', 'userProfile'])->find($currentUser->id);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Profile created successfully.',
+                'data'    => new UserResource($user)
+            ], 201);
+        } catch (Exception $e) {
+            Log::error('Profile Store Error: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Failed to create account.'
