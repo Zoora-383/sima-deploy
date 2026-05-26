@@ -48,13 +48,6 @@ class AuthService
      */
     public function refresh($guard)
     {
-        try {
-            return $guard->refresh();
-        } catch (JWTException $e) {
-         
-        throw $e;
-        } catch (Exception $e) {
-            throw new Exception("Refresh token failed: " . $e->getMessage());
-        }
+        return $guard->refresh();
     }
 }

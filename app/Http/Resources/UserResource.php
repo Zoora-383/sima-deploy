@@ -18,8 +18,8 @@ class UserResource extends JsonResource
             'uuid'     => $this->uuid,
             'role'     => $this->role ? $this->role->name : null,
             'email'    => $this->email,
+            'username' => $this->username,
             'profile'    => [
-                'username'   => $this->userProfile->username ?? null,
                 'full_name'  => $this->userProfile->fullname ?? null,
                 'phone'      => $this->userProfile->phone ?? null,
                 'location'   => $this->userProfile->location ?? null,

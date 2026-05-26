@@ -5,11 +5,9 @@ namespace App\Http\Controllers\api;
 // use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Models\User;
 use App\Services\AuthService;
 use Exception;
 use Illuminate\Auth\AuthenticationException;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
@@ -26,25 +24,10 @@ class AuthController extends Controller
     {
         try {
             $identifierRequest = $request->input('identifier');
-            $password = $request->input('password');
-
-            $user = User::where('email', $identifierRequest)
-                ->orWhereHas('userProfile', function ($q) use ($identifierRequest) {
-                    $q->where('username', $identifierRequest); // Sudah pakai titik koma (;)
-                })->first();
-
-
-            if (!$user) {
-                return response()->json(['message' => 'Akun kamu tidak ditemukan'], 401);
-            }
-
-            if (!Hash::check($password, $user->password)) {
-                return response()->json(['message' => 'Password yang dimasukan salah'], 401);
-            }
-
+            $field = filter_var($identifierRequest, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
             $credentials = [
-                'email'     => $user->email,
-                'password'  => $request->input('password')
+                $field     => $identifierRequest,
+                'password' => $request->input('password')
             ];
 
             $guard = auth('api');

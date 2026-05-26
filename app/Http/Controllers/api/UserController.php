@@ -4,15 +4,14 @@ namespace App\Http\Controllers\api;
 
 // use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\User\ProfileStoreRequest;
 use App\Http\Requests\User\UserStoreRequest;
+use App\Http\Requests\User\UserUpdateRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\UserService;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserController extends Controller
 {
@@ -26,8 +25,7 @@ class UserController extends Controller
     public function store(UserStoreRequest $request)
     {
         try {
-            $currentUser = auth('api')->user();
-            $newAccount = $this->userService->addAccount($request->validated(), $currentUser);
+            $newAccount = $this->userService->addUser($request->validated());
 
             return response()->json([
                 'status'  => 'success',
@@ -50,72 +48,83 @@ class UserController extends Controller
         }
     }
 
-    public function storeProfile(ProfileStoreRequest $request)
+    public function index()
     {
         try {
-            $currentUser = auth('api')->user();
-            $this->userService->addMyProfile($request->validated(), $currentUser);
-            $user = User::with(['role', 'userProfile'])->find($currentUser->id);
+            $users = $this->userService->getAllUser();
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Profile created successfully.',
-                'data'    => new UserResource($user)
-            ], 201);
+                'message' => 'Get all users successfully',
+                'data'    => [
+                    'user' => $users
+                ]
+            ], 200);
         } catch (Exception $e) {
-            Log::error('Profile Store Error: ' . $e->getMessage());
+            Log::error('User Index Error: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Failed to create account.'
+                'message' => 'Failed to get all users.'
             ], 500);
         }
     }
 
-    public function show()
+    public function show(string $uuid)
     {
         try {
-            $userId = auth('api')->id();
-            $user = $this->userService->getProfile($userId);
+            $user = $this->userService->getUserById($uuid);
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Get profile successfully',
-                'data'    => new UserResource($user)
-            ]);
-        } catch (NotFoundHttpException $e) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => $e->getMessage()
-            ], 404);
+                'message' => 'Get detail user successfully',
+                'data'    => [
+                    'user' => $user
+                ]
+            ], 200);
         } catch (Exception $e) {
             Log::error('User Show Error: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Server error'
+                'message' => 'Failed to get user.'
             ], 500);
         }
     }
 
-    public function destroy()
+    public function destroy(string $uuid)
     {
         try {
-            $userId = auth('api')->id();
-            $this->userService->deleteAccount($userId);
+            $deleteUser = $this->userService->deleteUser($uuid);
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Delete account successfully'
-            ]);
-        } catch (NotFoundHttpException $e) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => $e->getMessage()
-            ], 404);
+                'message' => 'User deleted successfully',
+            ], 200);
         } catch (Exception $e) {
             Log::error('User Destroy Error: ' . $e->getMessage());
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Server error'
+                'message' => 'Failed to delete.'
+            ], 500);
+        }
+    }
+
+    public function update(UserUpdateRequest $request, string $uuid)
+    {
+        try {
+            $updateUser = $this->userService->updateUser($request->validated(), $uuid);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'User deleted successfully',
+                'data' =>   [
+                    'user' => new UserResource($updateUser)
+                ]
+            ], 200);
+        } catch (Exception $e) {
+            Log::error('User Destroy Error: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to delete.'
             ], 500);
         }
     }

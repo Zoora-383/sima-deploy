@@ -16,8 +16,10 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->foreignId('role_id')->constrained()->cascadeOnDelete();
             $table->string('email')->unique();
+            $table->string('username')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->tinyInteger('is_active')->default(0);
             $table->rememberToken()->nullable();
             $table->timestamps();
         });

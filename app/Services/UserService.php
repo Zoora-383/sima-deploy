@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Role;
 use App\Models\User;
 use App\Models\UserProfile;
 use Exception;
@@ -14,26 +15,39 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserService
 {
+    // SUPER ADMIN METHOD USER MANAGEMENT
+
+    private function generateUniqueUsername(string $email)
+    {
+        $baseUsername = Str::before($email, '@');
+        $username = Str::slug($baseUsername);
+
+        $checkUniqueUsername = User::where('username', $username)->count();
+        if ($checkUniqueUsername > 0) {
+            $username = $username . '-' . ($checkUniqueUsername + 1);
+        }
+
+        return $username;
+    }
+
     /**
      * @param array $data
-     * @param User $currentUser
      * @return User
      * @throws AccessDeniedHttpException|Exception
      */
-    public function addAccount(array $data, User $currentUser)
+    public function addUser(array $data)
     {
-        $roleName = $currentUser->role->name ?? '';
-        if ($roleName !== 'super-admin') {
-            throw new AccessDeniedHttpException('Only super-admin can create new accounts.');
-        }
-
+        $role = Role::where('uuid', $data['role'])->first();
         try {
             DB::beginTransaction();
 
+            $username = $this->generateUniqueUsername($data['email']);
+
             $newAccount = User::create([
                 'uuid'     => Str::uuid()->toString(),
-                'role_id'     => $data['role'],
+                'role_id'  => $role->id,
                 'email'    => $data['email'],
+                'username' => $username,
                 'password' => Hash::make($data['password']),
             ]);
 
@@ -46,18 +60,112 @@ class UserService
         }
     }
 
-    private function generateUniqueUsername(string $email)
+    /**
+     * @return $user
+     * @throws Exception
+     */
+    public function getAllUser()
     {
-        $baseUsername = Str::before($email, '@');
-        $username = Str::slug($baseUsername);
+        try {
+            $user = User::with(['role', 'userProfile'])->orderBy('email', 'asc')->paginate(10);
 
-        $checkUniqueUsername = UserProfile::where('username', $username)->count();
-        if ($checkUniqueUsername > 0) {
-            $username = $username . '-' . ($checkUniqueUsername + 1);
+            return $user;
+        } catch (Exception $e) {
+            throw new Exception("Failed to get all users: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * @param string $userUuid
+     * @return $user
+     * @throws NotFoundHttpException|Exception
+     */
+    public function getUserById(string $userUuid)
+    {
+        try {
+            $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
+
+            if (!$user) {
+                throw new NotFoundHttpException('User not found.');
+            }
+
+            return $user;
+        } catch (NotFoundHttpException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            throw new Exception("Failed to get detail user: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * @param string $userUuid
+     * @throws NotFoundHttpException|Exception
+     * @return User|\stdClass
+     */
+    public function deleteUser(string $userUuid)
+    {
+        $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
+
+        if (!$user) {
+            throw new NotFoundHttpException('User not found.');
         }
 
-        return $username;
+        try {
+            $user->delete();
+
+            return $user;
+        } catch (Exception $e) {
+            throw new Exception("Failed to get detail user: " . $e->getMessage());
+        }
     }
+
+    /**
+     * @param array $data
+     * @param string $userUuid
+     * @throws NotFoundHttpException|Exception
+     * @return User|null
+     */
+    public function updateUser(array $data, string $userUuid)
+    {
+        $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
+
+        if (!$user) {
+            throw new NotFoundHttpException('User not found.');
+        }
+
+        try {
+            DB::beginTransaction();
+            $userData = [];
+
+            if (isset($data['role_id']))   $userData['role_id'] = $data['role_id'];
+            // if (isset($data['is_active'])) $userData['is_active'] = $data['is_active'];
+            if (isset($data['email']))     $userData['email'] = $data['email'];
+            if (isset($data['username'])) $userData['username'] = $data['username'];
+            if (!empty($data['password'])) $userData['password'] = Hash::make($data['password']);
+
+            if (!empty($userData)) {
+                $user->update($userData);
+            }
+
+            $profileData = [];
+
+            if (isset($data['fullname'])) $profileData['fullname'] = $data['fullname'];
+            if (isset($data['phone']))     $profileData['phone'] = $data['phone'];
+            if (isset($data['location']))   $profileData['location'] = $data['location'];
+
+            if (!empty($profileData)) {
+                $user->userProfile()->update($profileData);
+            }
+
+            DB::commit();
+            return $user->fresh(['role', 'userProfile']);
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to get detail user: " . $e->getMessage());
+        }
+    }
+
+    // PERSONAL USER METHOD ACCOUNT MANAGEMENT
 
     /**
      * @param array $data
@@ -74,11 +182,8 @@ class UserService
                 throw new ConflictHttpException('Kamu sudah ada profile, gunakan yang sudah ada yahh');
             }
 
-            $username = $this->generateUniqueUsername($currentUser->email);
-
             $profile = $currentUser->userProfile()->create([
                 'uuid'     => Str::uuid()->toString(),
-                'username' => $username,
                 'fullname' => $data['fullname'],
                 'phone'    => $data['phone'],
                 'location' => $data['location'],
@@ -95,13 +200,13 @@ class UserService
     }
 
     /**
-     * @param int $userId
+     * @param string $userUuid
      * @return User
      * @throws NotFoundHttpException
      */
-    public function getProfile(int $userId)
+    public function getMyProfile(string $userUuid)
     {
-        $user = User::find($userId);
+        $user = User::with(['role', 'userProfile'])->where('uuid', $userUuid)->first();
 
         if (!$user) {
             throw new NotFoundHttpException('User profile not found.');
@@ -111,13 +216,13 @@ class UserService
     }
 
     /**
-     * @param int $userId
+     * @param string $userUuid
      * @return void
      * @throws NotFoundHttpException|Exception
      */
-    public function deleteAccount(int $userId)
+    public function deleteMyAccount(string $userUuid)
     {
-        $user = User::find($userId);
+        $user = User::where('uuid', $userUuid)->first();
 
         if (!$user) {
             throw new NotFoundHttpException('Account not found.');
