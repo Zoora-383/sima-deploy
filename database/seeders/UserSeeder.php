@@ -26,6 +26,7 @@ class UserSeeder extends Seeder
             'email'    => $email,
             'username'   => $username,
             'password' => Hash::make('superadmin123'),
+            'is_active' => 1,
         ]);
         $user->userProfile()->create([
             'uuid' => Str::uuid()->toString(),

@@ -37,18 +37,19 @@ class UserService
      */
     public function addUser(array $data)
     {
-        $role = Role::where('uuid', $data['role'])->first();
+        $role = Role::where('name', $data['role'])->first();
         try {
             DB::beginTransaction();
 
             $username = $this->generateUniqueUsername($data['email']);
 
             $newAccount = User::create([
-                'uuid'     => Str::uuid()->toString(),
-                'role_id'  => $role->id,
-                'email'    => $data['email'],
-                'username' => $username,
-                'password' => Hash::make($data['password']),
+                'uuid'      => Str::uuid()->toString(),
+                'role_id'   => $role->id,
+                'email'     => $data['email'],
+                'username'  => $username,
+                'password'  => Hash::make($data['password']),
+                'is_active' => true,
             ]);
 
             DB::commit();
@@ -115,7 +116,7 @@ class UserService
 
             return $user;
         } catch (Exception $e) {
-            throw new Exception("Failed to get detail user: " . $e->getMessage());
+            throw new Exception("Failed to delete user: " . $e->getMessage());
         }
     }
 
@@ -161,7 +162,28 @@ class UserService
             return $user->fresh(['role', 'userProfile']);
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to get detail user: " . $e->getMessage());
+            throw new Exception("Failed to update user: " . $e->getMessage());
+        }
+    }
+
+    public function UpdatedStatusActiveUser(string $userUuid, bool $status)
+    {
+        $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
+
+        if (!$user) {
+            throw new NotFoundHttpException('User not found.');
+        }
+        try {
+            DB::beginTransaction();
+
+            $user->update(['is_active' => $status]);
+
+            DB::commit();
+
+            return $user;
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to update status user: " . $e->getMessage());
         }
     }
 
@@ -182,13 +204,16 @@ class UserService
                 throw new ConflictHttpException('Kamu sudah ada profile, gunakan yang sudah ada yahh');
             }
 
-            $profile = $currentUser->userProfile()->create([
-                'uuid'     => Str::uuid()->toString(),
-                'fullname' => $data['fullname'],
-                'phone'    => $data['phone'],
-                'location' => $data['location'],
-                'avatar_url' => $data['avatar_url']
-            ]);
+            $profile = $currentUser->userProfile()->updateOrCreate(
+                ['user_id' => $currentUser->id],
+                [
+                    'uuid'     => Str::uuid()->toString(),
+                    'fullname' => $data['fullname'],
+                    'phone'    => $data['phone'],
+                    'location' => $data['location'],
+                    'avatar_url' => $data['avatar_url']
+                ]
+            );
 
             DB::commit();
 

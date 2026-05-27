@@ -32,26 +32,16 @@ class AuthController extends Controller
 
             $guard = auth('api');
             $token = $this->authService->login($credentials, $guard);
-            $user  = $guard->user();
 
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Login successfully',
-                'data'    => [
-                    'accessToken' => $token
-                ]
-            ]);
+            return $this->successResponse(
+                ['accessToken' => $token],
+                'Login successfully'
+            );
         } catch (AuthenticationException $e) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => $e->getMessage()
-            ], 401);
+            return $this->errorResponse($e->getMessage(), 401);
         } catch (Exception $e) {
             Log::error('Login Fatal Error: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Something went wrong on our server.'
-            ], 500);
+            return $this->errorResponse('Something went wrong on our server.');
         }
     }
 
@@ -60,21 +50,12 @@ class AuthController extends Controller
         try {
             $this->authService->logout(auth('api'));
 
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Logout successfully'
-            ]);
+            return $this->successResponse(null, 'Logout successfully');
         } catch (JWTException $e) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Could not invalidate token'
-            ], 401);
+            return $this->errorResponse('Could not invalidate token', 401);
         } catch (Exception $e) {
             Log::error('Logout Error: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Server error during logout'
-            ], 500);
+            return $this->errorResponse('Server error during logout');
         }
     }
 
@@ -83,24 +64,15 @@ class AuthController extends Controller
         try {
             $newToken = $this->authService->refresh(auth('api'));
 
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Refresh token successfully',
-                'data'    => [
-                    'accessToken' => $newToken
-                ]
-            ]);
+            return $this->successResponse(
+                ['accessToken' => $newToken],
+                'Refresh token successfully'
+            );
         } catch (JWTException $e) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Token is invalid or expired'
-            ], 401);
+            return $this->errorResponse('Token is invalid or expired', 401);
         } catch (Exception $e) {
             Log::error('Refresh Token Error: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Server error during token refresh'
-            ], 500);
+            return $this->errorResponse('Server error during token refresh');
         }
     }
 }

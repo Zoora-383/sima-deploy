@@ -22,6 +22,13 @@ class AuthService
             throw new AuthenticationException(ucfirst($inputType) . ' or password incorrect');
         }
 
+        $user = $guard->user();
+
+        if (!$user->is_active) {
+            $guard->logout(); // Invalidate token immediately
+            throw new AuthenticationException('Your account has been blocked. Please contact the administrator.');
+        }
+
         return $token;
     }
 

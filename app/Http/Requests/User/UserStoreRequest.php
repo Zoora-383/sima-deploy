@@ -22,7 +22,7 @@ class UserStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role'       => 'required|string|exists:roles,uuid',
+            'role'       => 'required|string|exists:roles,name',
             'email'      => 'required|email|unique:users,email',
             'password'   => 'required|string|min:6',
         ];

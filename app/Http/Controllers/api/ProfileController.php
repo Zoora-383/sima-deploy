@@ -4,7 +4,8 @@ namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\ProfileStoreRequest;
-use App\Http\Resources\UserResource;
+use App\Http\Resources\UserDetailResource;
+use App\Http\Resources\UserProfileResource;
 use App\Models\User;
 use App\Services\UserService;
 use Exception;
@@ -28,17 +29,14 @@ class ProfileController extends Controller
             $this->userService->addMyProfile($request->validated(), $currentUser);
             $user = User::with(['role', 'userProfile'])->where('uuid', $currentUser->uuid)->first();
 
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Profile created successfully.',
-                'data'    => new UserResource($user)
-            ], 201);
+            return $this->successResponse(
+                new UserProfileResource($user),
+                'Profile created successfully.',
+                201
+            );
         } catch (Exception $e) {
             Log::error('Profile Store Error: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Failed to create account.'
-            ], 500);
+            return $this->errorResponse('Failed to create profile.');
         }
     }
 
@@ -48,22 +46,15 @@ class ProfileController extends Controller
             $userUuid = auth('api')->user()->uuid;
             $user = $this->userService->getMyProfile($userUuid);
 
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Get profile successfully',
-                'data'    => new UserResource($user)
-            ]);
+            return $this->successResponse(
+                new UserDetailResource($user),
+                'Get profile successfully'
+            );
         } catch (NotFoundHttpException $e) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => $e->getMessage()
-            ], 404);
+            return $this->errorResponse($e->getMessage(), 404);
         } catch (Exception $e) {
             Log::error('User Show Error: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Server error'
-            ], 500);
+            return $this->errorResponse('Server error');
         }
     }
 
@@ -73,21 +64,12 @@ class ProfileController extends Controller
             $userUuid = auth('api')->user()->uuid;
             $this->userService->deleteMyAccount($userUuid);
 
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Delete account successfully'
-            ]);
+            return $this->successResponse(null, 'Delete account successfully');
         } catch (NotFoundHttpException $e) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => $e->getMessage()
-            ], 404);
+            return $this->errorResponse($e->getMessage(), 404);
         } catch (Exception $e) {
             Log::error('User Destroy Error: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Server error'
-            ], 500);
+            return $this->errorResponse('Server error');
         }
     }
 }
