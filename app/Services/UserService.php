@@ -166,7 +166,7 @@ class UserService
         }
     }
 
-    public function UpdatedStatusActiveUser(string $userUuid, bool $status)
+    public function updateUserStatus(string $userUuid, bool $status)
     {
         $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
 
@@ -183,7 +183,7 @@ class UserService
             return $user;
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to update status user: " . $e->getMessage());
+            throw new Exception("Failed to update user status: " . $e->getMessage());
         }
     }
 
@@ -200,18 +200,16 @@ class UserService
         try {
             DB::beginTransaction();
 
-            if ($currentUser->userProfile()->exists()) {
-                throw new ConflictHttpException('Kamu sudah ada profile, gunakan yang sudah ada yahh');
-            }
+            $existingProfile = $currentUser->userProfile;
 
             $profile = $currentUser->userProfile()->updateOrCreate(
                 ['user_id' => $currentUser->id],
                 [
-                    'uuid'     => Str::uuid()->toString(),
-                    'fullname' => $data['fullname'],
-                    'phone'    => $data['phone'],
-                    'location' => $data['location'],
-                    'avatar_url' => $data['avatar_url']
+                    'uuid'       => $existingProfile->uuid ?? Str::uuid()->toString(),
+                    'fullname'   => $data['fullname'] ?? ($existingProfile->fullname ?? null),
+                    'phone'      => $data['phone'] ?? ($existingProfile->phone ?? null),
+                    'location'   => $data['location'] ?? ($existingProfile->location ?? null),
+                    'avatar_url' => $data['avatar_url'] ?? ($existingProfile->avatar_url ?? null)
                 ]
             );
 

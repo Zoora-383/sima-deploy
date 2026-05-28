@@ -97,7 +97,7 @@ class RoleService
             return $role;
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Update role failed: " . $e->getMessage());
+            throw new Exception("Failed to update role: " . $e->getMessage());
         }
     }
 }

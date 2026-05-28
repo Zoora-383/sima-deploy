@@ -20,7 +20,7 @@ class JwtCheckMiddleware
             if (! $user) {
                 return response()->json([
                     'status'  => 'error',
-                    'message' => 'User tidak ditemukan.'
+                    'message' => 'User not found.'
                 ], 401);
             }
         } catch (TokenInvalidException $e) {

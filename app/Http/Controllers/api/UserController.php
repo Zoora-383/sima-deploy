@@ -93,7 +93,7 @@ class UserController extends Controller
             $updateUser = $this->userService->updateUser($request->validated(), $uuid);
 
             return $this->successResponse(
-                null,
+                ['user' => new UserResource($updateUser)],
                 'User updated successfully'
             );
         } catch (NotFoundHttpException $e) {
@@ -107,17 +107,22 @@ class UserController extends Controller
     public function updateStatus(UserUpdateRequest $request, string $uuid)
     {
         try {
-            $updateStatus = $this->userService->UpdatedStatusActiveUser($uuid, $request->validated());
+            $user = $this->userService->getUserById($uuid);
+            $newStatus = !$user->is_active; 
+            
+            $updatedUser = $this->userService->updateUserStatus($uuid, $newStatus);
 
-            return $this->successResponse([
-                null,
-                'User update status successfully'
-            ]);
+            $message = $newStatus ? 'User activated successfully' : 'User blocked successfully';
+
+            return $this->successResponse(
+                ['user' => new UserResource($updatedUser)],
+                $message
+            );
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
         } catch (Exception $e) {
-            Log::error('User Update Status Error: ' . $e->getMessage());
-            return $this->errorResponse('Failed to update status user.');
+            Log::error('User Status Update Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to update user status.');
         }
     }
 }

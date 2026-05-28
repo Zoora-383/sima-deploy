@@ -13,11 +13,12 @@ return new class extends Migration
     {
         Schema::create('maintenance_request', function (Blueprint $table) {
             $table->id();
-            $table->string('uuid')->unique();
-            $table->foreignId('asset_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('requester_id')->constrained('users', 'id')->cascadeOnDelete();
+            $table->uuid('uuid')->unique();
+            $table->string('nomor_pengajuan');
+            $table->foreignId('item_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('requester')->constrained('users', 'id')->cascadeOnDelete();
             $table->string('title');
-            $table->enum('priories', ['low', 'medium', 'high']);
+            $table->enum('priority', ['high', 'medium', 'low']);
             $table->enum('type', ['korektif', 'preventif']);
             $table->text('description')->nullable();
             $table->integer('estimated_day')->nullable();

@@ -30,7 +30,7 @@ class ProfileController extends Controller
             $user = User::with(['role', 'userProfile'])->where('uuid', $currentUser->uuid)->first();
 
             return $this->successResponse(
-                new UserProfileResource($user),
+                ['profile' => new UserProfileResource($user)],
                 'Profile created successfully.',
                 201
             );
@@ -47,13 +47,13 @@ class ProfileController extends Controller
             $user = $this->userService->getMyProfile($userUuid);
 
             return $this->successResponse(
-                new UserDetailResource($user),
+                ['profile' => new UserDetailResource($user)],
                 'Get profile successfully'
             );
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
         } catch (Exception $e) {
-            Log::error('User Show Error: ' . $e->getMessage());
+            Log::error('Profile Show Error: ' . $e->getMessage());
             return $this->errorResponse('Server error');
         }
     }
@@ -68,7 +68,7 @@ class ProfileController extends Controller
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
         } catch (Exception $e) {
-            Log::error('User Destroy Error: ' . $e->getMessage());
+            Log::error('Profile Destroy Error: ' . $e->getMessage());
             return $this->errorResponse('Server error');
         }
     }

@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('assets', function (Blueprint $table) {
+        Schema::create('item_categories', function (Blueprint $table) {
             $table->id();
-            $table->uuid('uuid');
-            $table->foreignId('category_id')->constrained('asset_categories', 'id')->cascadeOnDelete();
-            $table->string('code_asset')->unique();
-            $table->string('name_asset');
-            $table->string('image_url');
-            $table->integer('masa_pakai_bulan');
+            $table->uuid('uuid')->unique();
+            $table->string('name');
             $table->timestamps();
         });
     }
@@ -28,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('assets');
+        Schema::dropIfExists('item_categories');
     }
 };

@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\api\AuthController;
+use App\Http\Controllers\api\ItemCategoryController;
 use App\Http\Controllers\api\ProfileController;
 use App\Http\Controllers\api\RoleController;
+use App\Http\Controllers\api\ItemController;
 use App\Http\Controllers\api\UserController;
 use App\Http\Middleware\JwtCheckMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,22 @@ Route::prefix('v1')->group(function () {
             Route::get('/roles', [RoleController::class, 'index']);
             Route::delete('/roles/{uuid}', [RoleController::class, 'destroy']);
             Route::put('/roles/{uuid}', [RoleController::class, 'update']);
+        });
+
+        // KHUSUS ADMIN ROUTES
+        Route::middleware('role:admin')->group(function () {
+            // CRUD Items Category
+            Route::post('/item-category', [ItemCategoryController::class, 'store']);
+            Route::get('/item-category', [ItemCategoryController::class, 'index']);
+            Route::delete('/item-category/{uuid}', [ItemCategoryController::class, 'destroy']);
+            Route::put('/item-category/{uuid}', [ItemCategoryController::class, 'update']);
+
+            // CRUD Items
+            Route::post('/items', [ItemController::class, 'store']);
+            Route::get('/items', [ItemController::class, 'index']);
+            Route::get('/items/{uuid}', [ItemController::class, 'show']);
+            Route::delete('/items/{uuid}', [ItemController::class, 'destroy']);
+            Route::put('/items/{uuid}', [ItemController::class, 'update']);
         });
     });
 });
