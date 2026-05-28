@@ -2,15 +2,14 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Storage;
 use App\Models\Role;
 use App\Models\User;
-use App\Models\UserProfile;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserService
@@ -190,31 +189,61 @@ class UserService
     // PERSONAL USER METHOD ACCOUNT MANAGEMENT
 
     /**
-     * @param array $data
-     * @param User $currentUser
-     * @return UserProfile
-     * @throws ConflictHttpException|Exception
+     * Summary of uploadImage
+     * @param mixed $file
+     * @param string $folder
+     * @return string
      */
-    public function addMyProfile(array $data, User $currentUser)
+    private function uploadImage($file, string $folder): string
+    {
+        $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+        return $file->storeAs($folder, $fileName, 'public');
+    }
+
+    /**
+     * Summary of deleteOldImage
+     * @param mixed $oldPath
+     * @return void
+     */
+    private function deleteOldImage(?string $oldPath): void
+    {
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+    }
+
+    /**
+     * Summary of addMyProfile
+     * @param array $data
+     * @param mixed $file
+     * @param User $currentUser
+     * @return \App\Models\UserProfile
+     */
+    public function addMyProfile(array $data, $file = null, User $currentUser)
     {
         try {
             DB::beginTransaction();
 
             $existingProfile = $currentUser->userProfile;
+            $avatarPath = $existingProfile->avatar_url ?? null;
+
+            if ($file) {
+                $this->deleteOldImage($avatarPath);
+                $avatarPath = $this->uploadImage($file, 'avatars');
+            }
 
             $profile = $currentUser->userProfile()->updateOrCreate(
                 ['user_id' => $currentUser->id],
                 [
                     'uuid'       => $existingProfile->uuid ?? Str::uuid()->toString(),
-                    'fullname'   => $data['fullname'] ?? ($existingProfile->fullname ?? null),
-                    'phone'      => $data['phone'] ?? ($existingProfile->phone ?? null),
-                    'location'   => $data['location'] ?? ($existingProfile->location ?? null),
-                    'avatar_url' => $data['avatar_url'] ?? ($existingProfile->avatar_url ?? null)
+                    'fullname'   => $data['fullname']  ?? $existingProfile->fullname  ?? null,
+                    'phone'      => $data['phone']     ?? $existingProfile->phone     ?? null,
+                    'location'   => $data['location']  ?? $existingProfile->location  ?? null,
+                    'avatar_url' => $avatarPath,
                 ]
             );
 
             DB::commit();
-
             return $profile;
         } catch (Exception $e) {
             DB::rollBack();

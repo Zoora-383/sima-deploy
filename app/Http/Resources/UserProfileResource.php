@@ -15,10 +15,10 @@ class UserProfileResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'fullname'  => $this->userProfile->fullname ?? null,
+            'fullname'   => $this->userProfile->fullname ?? null,
             'phone'      => $this->userProfile->phone ?? null,
             'location'   => $this->userProfile->location ?? null,
-            'avatar_url' => $this->userProfile->avatar_url ?? null,
+            'avatar' => $this->avatar_url ? asset('storage/' . $this->avatar_url) : null,
         ];
     }
 }

@@ -26,7 +26,8 @@ class ProfileController extends Controller
     {
         try {
             $currentUser = auth('api')->user();
-            $this->userService->addMyProfile($request->validated(), $currentUser);
+            $file = $request->file('avatar');
+            $this->userService->addMyProfile($request->validated(), $file, $currentUser);
             $user = User::with(['role', 'userProfile'])->where('uuid', $currentUser->uuid)->first();
 
             return $this->successResponse(
