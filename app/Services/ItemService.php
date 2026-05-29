@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
+use App\Traits\CloudinaryUpload;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -12,6 +13,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ItemService
 {
+    use CloudinaryUpload;
+
     // METHODS ITEMS CATEGORY
 
     /**
@@ -130,11 +133,12 @@ class ItemService
     /**
      * Create a new item
      * @param array $data
+     * @param mixed $file
      * @param User $currentUser
      * @return Item
      * @throws NotFoundHttpException|Exception
      */
-    public function createItem(array $data, User $currentUser): Item
+    public function createItem(array $data, $file = null, User $currentUser): Item
     {
         $category = ItemCategory::where('name', $data['category'])->first();
 
@@ -144,6 +148,11 @@ class ItemService
 
         try {
             DB::beginTransaction();
+
+            $imagePath = null;
+            if ($file) {
+                $imagePath = $this->uploadImage($file, 'items');
+            }
 
             $item = Item::create([
                 'uuid'        => Str::uuid()->toString(),
@@ -155,7 +164,7 @@ class ItemService
                 'type'        => $data['type'],
                 'status'      => 'draft',
                 'units'       => $data['units']       ?? null,
-                'image_item'  => $data['image_item']  ?? null,
+                'image_item'  => $imagePath,
                 'location'    => $data['location']    ?? null,
                 'description' => $data['description'] ?? null,
             ]);
@@ -216,10 +225,11 @@ class ItemService
      * Update an existing item
      * @param string $itemUuid
      * @param array $data
+     * @param mixed $file
      * @return Item
      * @throws NotFoundHttpException|Exception
      */
-    public function updateItem(string $itemUuid, array $data): Item
+    public function updateItem(string $itemUuid, array $data, $file = null): Item
     {
         $item = Item::where('uuid', $itemUuid)->first();
 
@@ -242,6 +252,12 @@ class ItemService
                 }
             }
 
+            $imagePath = $item->image_item;
+            if ($file) {
+                $this->deleteOldImage($imagePath);
+                $imagePath = $this->uploadImage($file, 'items');
+            }
+
             $needsNewCode = (isset($data['type']) && $data['type'] !== $item->type)
                 || (isset($data['category']) && $category->id !== $item->category_id);
 
@@ -253,7 +269,7 @@ class ItemService
                 'name'        => $data['name']        ?? $item->name,
                 'type'        => $data['type']         ?? $item->type,
                 'units'       => $data['units']        ?? $item->units,
-                'image_item'  => $data['image_item']   ?? $item->image_item,
+                'image_item'  => $imagePath,
                 'location'    => $data['location']     ?? $item->location,
                 'description' => $data['description']  ?? $item->description,
             ]);

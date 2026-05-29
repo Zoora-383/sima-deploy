@@ -26,7 +26,7 @@ class ProfileStoreRequest extends FormRequest
             'fullname' => 'nullable|string|min:3',
             'phone'    => 'nullable|string|regex:/^[0-9+\s-]+$/|min:9|max:15',
             'location' => 'nullable|string|max:255',
-            'avatar_url' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048'
+            'avatar'   => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048'
         ];
     }
 

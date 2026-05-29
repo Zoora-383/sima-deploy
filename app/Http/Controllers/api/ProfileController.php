@@ -22,6 +22,11 @@ class ProfileController extends Controller
         $this->userService = $userService;
     }
 
+    /**
+     * @param ProfileStoreRequest $request
+     * @requestMediaType multipart/form-data
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function store(ProfileStoreRequest $request)
     {
         try {

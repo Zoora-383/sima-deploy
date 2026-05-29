@@ -22,11 +22,11 @@ class ItemStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'category' => 'required|string|exists:item_categories,name',
-            'name'     => 'required|string',
-            'type'     => 'required|string|in:logistic,non-logistic,service',
-            'unit'     => 'nullable|integer',
-            'image_item'  => 'nullable|string',
+            'category'    => 'required|string|exists:item_categories,name',
+            'name'        => 'required|string',
+            'type'        => 'required|string|in:logistic,non-logistic,service',
+            'units'       => 'nullable|integer',
+            'image_item'  => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'location'    => 'nullable|string',
             'description' => 'nullable|string',
         ];

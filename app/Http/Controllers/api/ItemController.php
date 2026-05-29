@@ -28,7 +28,8 @@ class ItemController extends Controller
     {
         try {
             $currentUser = auth('api')->user();
-            $item = $this->itemService->createItem($request->validated(), $currentUser);
+            $file = $request->file('image_item');
+            $item = $this->itemService->createItem($request->validated(), $file, $currentUser);
             
             return $this->successResponse(
                 ['item' => new ItemResource($item)],
@@ -94,7 +95,8 @@ class ItemController extends Controller
     public function update(ItemUpdateRequest $request, string $uuid)
     {
         try {
-            $item = $this->itemService->updateItem($uuid, $request->validated());
+            $file = $request->file('image_item');
+            $item = $this->itemService->updateItem($uuid, $request->validated(), $file);
 
             return $this->successResponse(
                 ['item' => new ItemResource($item)], 

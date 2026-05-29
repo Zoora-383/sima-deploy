@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Storage;
 use App\Models\Role;
 use App\Models\User;
+use App\Traits\CloudinaryUpload;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserService
 {
+    use CloudinaryUpload;
+
     // SUPER ADMIN METHOD USER MANAGEMENT
 
     private function generateUniqueUsername(string $email)
@@ -187,30 +189,6 @@ class UserService
     }
 
     // PERSONAL USER METHOD ACCOUNT MANAGEMENT
-
-    /**
-     * Summary of uploadImage
-     * @param mixed $file
-     * @param string $folder
-     * @return string
-     */
-    private function uploadImage($file, string $folder): string
-    {
-        $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-        return $file->storeAs($folder, $fileName, 'public');
-    }
-
-    /**
-     * Summary of deleteOldImage
-     * @param mixed $oldPath
-     * @return void
-     */
-    private function deleteOldImage(?string $oldPath): void
-    {
-        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
-            Storage::disk('public')->delete($oldPath);
-        }
-    }
 
     /**
      * Summary of addMyProfile

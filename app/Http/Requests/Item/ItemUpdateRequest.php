@@ -27,7 +27,7 @@ class ItemUpdateRequest extends FormRequest
             'name'        => 'nullable|string',
             'type'        => 'nullable|string|in:logistic,non-logistic,service',
             'units'       => 'nullable|integer',
-            'image_item'  => 'nullable|string',
+            'image_item'  => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'location'    => 'nullable|string',
             'description' => 'nullable|string',
         ];
