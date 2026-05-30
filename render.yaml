@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: sima-app-api
+    env: php
+    buildCommand: composer install --no-dev --optimize-autoloader && php artisan config:cache && php artisan route:cache && php artisan view:cache
+    startCommand: php artisan migrate --force && php artisan db:seed --force && php -S 0.0.0.0:$PORT -t public
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: sima-app-db
+          property: connectionString
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: LOG_CHANNEL
+        value: stderr
+
+databases:
+  - name: sima-app-db
+    databaseName: simaapp
+    user: simaapp
+    plan: free
