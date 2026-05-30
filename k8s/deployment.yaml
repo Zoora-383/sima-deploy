@@ -56,7 +56,7 @@ spec:
               php artisan config:cache
               php artisan route:cache
               php artisan view:cache || true
-              php artisan migrate --force --no-interaction || true
+              php artisan migrate --force --no-interaction
           envFrom:
             - secretRef:
                 name: sima-secrets
@@ -70,6 +70,8 @@ spec:
           volumeMounts:
             - name: code
               mountPath: /var/www/html
+            - name: storage
+              mountPath: /var/www/html/storage
 
       containers:
         - name: php-fpm

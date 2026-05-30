@@ -24,8 +24,12 @@ WORKDIR /var/www/html
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction \
+  && mkdir -p /var/www/html/storage/framework/sessions \
+            /var/www/html/storage/framework/views \
+            /var/www/html/storage/framework/cache \
+            /var/www/html/storage/logs \
   && chown -R www-data:www-data /var/www/html \
-  && chmod -R 755 /var/www/html/storage
+  && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Allow PHP-FPM workers to inherit container environment variables (e.g. from k8s secrets)
 RUN printf "[www]\nclear_env = no\n" > /usr/local/etc/php-fpm.d/zzz-clear-env.conf
