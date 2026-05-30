@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.example
+node_modules
+vendor
+*.md
+.gitlab-ci.yml
+docker-compose.yml
+k8s/
+.gitea/
+storage/
+tests/
+.editorconfig
+.gitattributes

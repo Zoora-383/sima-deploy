@@ -1,0 +1,106 @@
+name: Build and Deploy
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: 10.10.0.150:5000
+  REG: 10.10.0.150:5000/${{ secrets.REGISTRY_USER }}
+
+jobs:
+  build-and-deploy:
+    runs-on: k3s-runner
+    steps:
+      - name: Checkout
+        env:
+          GIT_TOKEN: ${{ gitea.token }}
+        run: |
+          git clone http://x-access-token:$GIT_TOKEN@10.10.0.150:3000/${{ gitea.repository }}.git .
+          git checkout ${{ gitea.sha }}
+
+      - name: Debug
+        run: |
+          echo "REGISTRY=$REGISTRY"
+          echo "REG=$REG"
+          kubectl version --client
+
+      - name: Login to Registry
+        run: |
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} \
+            -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+
+      - name: Build and Push Image
+        run: |
+          SHA=${{ gitea.sha }}
+          docker pull $REG/sima-app:latest 2>/dev/null || true
+          DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain docker build \
+            -f docker/php/Dockerfile \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            --cache-from $REG/sima-app:latest \
+            -t $REG/sima-app:$SHA \
+            -t $REG/sima-app:latest \
+            .
+          docker push $REG/sima-app:$SHA
+          docker push $REG/sima-app:latest
+
+      - name: Apply k8s Manifests
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG_DATA" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+          SHA=${{ gitea.sha }}
+          IMAGE=$REG/sima-app:$SHA
+
+          kubectl apply -f k8s/namespace.yaml
+
+          kubectl create secret docker-registry registry-credentials \
+            --docker-server=$REGISTRY \
+            --docker-username=${{ secrets.REGISTRY_USER }} \
+            --docker-password=${{ secrets.REGISTRY_TOKEN }} \
+            --namespace=sima \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl apply -f k8s/pvc.yaml
+
+          kubectl create secret generic sima-secrets \
+            --from-literal=APP_NAME="${{ secrets.APP_NAME }}" \
+            --from-literal=APP_ENV="${{ secrets.APP_ENV }}" \
+            --from-literal=APP_KEY="${{ secrets.APP_KEY }}" \
+            --from-literal=APP_DEBUG="${{ secrets.APP_DEBUG }}" \
+            --from-literal=APP_URL="${{ secrets.APP_URL }}" \
+            --from-literal=DB_CONNECTION="${{ secrets.DB_CONNECTION }}" \
+            --from-literal=DB_HOST="${{ secrets.DB_HOST }}" \
+            --from-literal=DB_PORT="${{ secrets.DB_PORT }}" \
+            --from-literal=DB_DATABASE="${{ secrets.DB_DATABASE }}" \
+            --from-literal=DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+            --from-literal=DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --from-literal=CLOUDINARY_URL="${{ secrets.CLOUDINARY_URL }}" \
+            --from-literal=CLOUDINARY_CLOUD_NAME="${{ secrets.CLOUDINARY_CLOUD_NAME }}" \
+            --from-literal=CLOUDINARY_API_KEY="${{ secrets.CLOUDINARY_API_KEY }}" \
+            --from-literal=CLOUDINARY_API_SECRET="${{ secrets.CLOUDINARY_API_SECRET }}" \
+            --namespace=sima \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+          sed "s|IMAGE_PLACEHOLDER|$IMAGE|g" k8s/deployment.yaml | kubectl apply -f -
+
+      - name: Wait for Rollout
+        run: |
+          kubectl rollout status deployment/sima-app -n sima --timeout=120s
+
+      - name: Show Pod status on failure
+        if: failure()
+        run: |
+          kubectl -n sima get pods -o wide || true
+          kubectl -n sima describe deployment/sima-app || true
+          kubectl -n sima logs deploy/sima-app -c copy-code --tail=200 || true
+          kubectl -n sima logs deploy/sima-app -c bootstrap --tail=200 || true
+          kubectl -n sima logs deploy/sima-app -c php-fpm --tail=200 || true
+          kubectl -n sima logs deploy/sima-app -c nginx --tail=200 || true

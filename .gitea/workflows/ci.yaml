@@ -1,0 +1,24 @@
+name: CI
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: k3s-runner
+    steps:
+      - name: Checkout
+        env:
+          GIT_TOKEN: ${{ gitea.token }}
+        run: |
+          git clone http://x-access-token:$GIT_TOKEN@10.10.0.150:3000/${{ gitea.repository }}.git .
+          git checkout ${{ gitea.sha }}
+
+      - name: PHP Syntax Check
+        run: |
+          docker run --rm -v "$PWD":/app -w /app php:8.5-cli-alpine \
+            sh -c 'find . -name "*.php" -print0 | xargs -0 -n1 php -l'
