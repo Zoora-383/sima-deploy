@@ -24,7 +24,11 @@ WORKDIR /var/www/html
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction \
-  && chown -R www-data:www-data /var/www/html \
-  && chmod -R 755 /var/www/html/storage
+    && mkdir -p /var/www/html/storage/framework/cache \
+    && mkdir -p /var/www/html/storage/framework/sessions \
+    && mkdir -p /var/www/html/storage/framework/views \
+    && mkdir -p /var/www/html/storage/logs \
+    && chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage
 
 RUN printf "[www]\nclear_env = no\n" > /usr/local/etc/php-fpm.d/zzz-clear-env.conf
