@@ -5,7 +5,7 @@ metadata:
   namespace: sima
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   storageClassName: longhorn
   resources:
     requests:
