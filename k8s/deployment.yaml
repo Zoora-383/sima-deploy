@@ -48,10 +48,17 @@ spec:
             - sh
             - -c
             - |
+              # Wait for storage mount to be ready (avoid race condition with Longhorn/NFS)
+              until mountpoint -q /var/www/html/storage; do
+                echo "Waiting for storage mount..."
+                sleep 2
+              done
+
               mkdir -p /var/www/html/storage/framework/sessions
               mkdir -p /var/www/html/storage/framework/views
               mkdir -p /var/www/html/storage/framework/cache
               mkdir -p /var/www/html/storage/logs
+              chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
               chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
               php artisan config:cache
               php artisan route:cache
