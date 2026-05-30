@@ -148,7 +148,7 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 5
-            failureThreshold: 59
+            failureThreshold: 20
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/default.conf
@@ -163,6 +163,18 @@ spec:
       volumes:
         - name: code
           emptyDir: {}
+        - name: nginx-config
+          configMap:
+            name: sima-config
+            items:
+              - key: default.conf
+                path: default.conf
+        - name: storage
+          persistentVolumeClaim:
+            claimName: sima-storage
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+{}
         - name: nginx-config
           configMap:
             name: sima-config
