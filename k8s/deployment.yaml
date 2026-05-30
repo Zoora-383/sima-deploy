@@ -70,6 +70,8 @@ spec:
           volumeMounts:
             - name: code
               mountPath: /var/www/html
+            - name: storage
+              mountPath: /var/www/html/storage
 
       containers:
         - name: php-fpm
