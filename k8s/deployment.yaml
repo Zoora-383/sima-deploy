@@ -70,6 +70,8 @@ spec:
           volumeMounts:
             - name: code
               mountPath: /var/www/html
+            - name: storage
+              mountPath: /var/www/html/storage
 
       containers:
         - name: php-fpm
@@ -108,7 +110,7 @@ spec:
               port: 9000
             initialDelaySeconds: 5
             periodSeconds: 5
-            failureThreshold: 59
+            failureThreshold: 20
           volumeMounts:
             - name: code
               mountPath: /var/www/html
@@ -146,7 +148,7 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 5
-            failureThreshold: 59
+            failureThreshold: 20
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/default.conf
