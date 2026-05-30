@@ -48,6 +48,15 @@ spec:
             - sh
             - -c
             - |
+              echo "Checking database connection..."
+              count=0
+              until php artisan db:monitor || [ $? -eq 0 ]; do
+                echo "Waiting for database..."
+                sleep 2
+                count=$((count+1))
+                if [ $count -gt 15 ]; then echo "Database connection timeout"; exit 1; fi
+              done
+
               mkdir -p /var/www/html/storage/framework/sessions
               mkdir -p /var/www/html/storage/framework/views
               mkdir -p /var/www/html/storage/framework/cache
@@ -174,18 +183,3 @@ spec:
             claimName: sima-storage
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
-
-
-          emptyDir: {}
-        - name: nginx-config
-          configMap:
-            name: sima-config
-            items:
-              - key: default.conf
-                path: default.conf
-        - name: storage
-          persistentVolumeClaim:
-            claimName: sima-storage
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 30
-
