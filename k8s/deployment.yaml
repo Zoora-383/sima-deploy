@@ -110,7 +110,7 @@ spec:
               port: 9000
             initialDelaySeconds: 5
             periodSeconds: 5
-            failureThreshold: 59
+            failureThreshold: 20
           volumeMounts:
             - name: code
               mountPath: /var/www/html
@@ -174,7 +174,9 @@ spec:
             claimName: sima-storage
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
-{}
+
+
+          emptyDir: {}
         - name: nginx-config
           configMap:
             name: sima-config
@@ -186,3 +188,4 @@ spec:
             claimName: sima-storage
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
+
