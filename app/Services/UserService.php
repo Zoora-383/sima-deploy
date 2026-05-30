@@ -4,17 +4,19 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Models\User;
-use App\Traits\CloudinaryUpload;
+// use App\Traits\CloudinaryUpload;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserService
 {
-    use CloudinaryUpload;
+    // use CloudinaryUpload;
 
     // SUPER ADMIN METHOD USER MANAGEMENT
 
@@ -205,9 +207,22 @@ class UserService
             $existingProfile = $currentUser->userProfile;
             $avatarPath = $existingProfile->avatar_url ?? null;
 
+            // if ($file) {
+            //     $this->deleteOldImage($avatarPath);
+            //     $avatarPath = $this->uploadImage($file, 'avatars');
+            // }
+
             if ($file) {
-                $this->deleteOldImage($avatarPath);
-                $avatarPath = $this->uploadImage($file, 'avatars');
+                if ($avatarPath) {
+                    $oldPath = parse_url($avatarPath, PHP_URL_PATH);
+                    $oldPath = ltrim($oldPath, '/');
+                    Storage::disk('s3')->delete($oldPath);
+                }
+
+                // Upload baru
+                $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+                $path = Storage::disk('s3')->putFileAs('avatars', $file, $filename);
+                $avatarPath = Storage::disk('s3')->url($path);
             }
 
             $profile = $currentUser->userProfile()->updateOrCreate(
