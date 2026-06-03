@@ -206,7 +206,8 @@ class ItemService
                 'user.userProfile:user_id,fullname',
                 'approvedBy:id,username',
                 'approvedBy.userProfile:user_id,fullname',
-                'category:id,name'
+                'category:id,name',
+                'approvalLogs.user.userProfile'
             ])->where('uuid', $itemUuid)->first();
 
             if (!$item) {
@@ -316,13 +317,14 @@ class ItemService
     }
 
     /**
-     * Approve an item
+     * Update status of an item (Approve, Revision, etc.)
      * @param string $itemUuid
+     * @param array $data (status, note)
      * @param User $currentUser
      * @return Item
      * @throws NotFoundHttpException|Exception
      */
-    public function approveItem(string $itemUuid, User $currentUser): Item
+    public function updateStatus(string $itemUuid, array $data, User $currentUser): Item
     {
         $item = Item::where('uuid', $itemUuid)->first();
 
@@ -330,23 +332,28 @@ class ItemService
             throw new NotFoundHttpException('Item not found.');
         }
 
-        if ($item->status !== 'draft') {
-            throw new Exception('Only draft items can be approved.');
-        }
-
         try {
             DB::beginTransaction();
 
-            $item->update([
-                'approved_by' => $currentUser->id,
-                'status'      => 'active',
-            ]);
+            $statusFrom = $item->status;
+            $statusTo = $data['status'];
+            $note = $data['note'] ?? null;
+
+            $updateData = ['status' => $statusTo];
+            
+            if ($statusTo === 'active') {
+                $updateData['approved_by'] = $currentUser->id;
+            }
+
+            $item->update($updateData);
+
+            $this->recordLog($item, $statusFrom, $statusTo, $note, $currentUser->id);
 
             DB::commit();
             return $item->fresh();
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to approve item: " . $e->getMessage());
+            throw new Exception("Failed to update item status: " . $e->getMessage());
         }
     }
 }

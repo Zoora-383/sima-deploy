@@ -109,4 +109,22 @@ class ItemController extends Controller
             return $this->errorResponse('Failed to update item.');
         }
     }
+
+    public function updateStatus(ItemStatusRequest $request, string $uuid)
+    {
+        try {
+            $currentUser = auth('api')->user();
+            $item = $this->itemService->updateStatus($uuid, $request->validated(), $currentUser);
+
+            return $this->successResponse(
+                ['item' => new ItemDetailResource($item)], 
+                'Updated item status successfully'
+            );
+        } catch (AccessDeniedHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
+        } catch (Exception $e) {
+            Log::error('Item Update Status Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to update item status.');
+        }
+    }
 }

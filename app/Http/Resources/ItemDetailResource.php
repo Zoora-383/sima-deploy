@@ -27,6 +27,7 @@ class ItemDetailResource extends JsonResource
             'category'     => $this->category->name ?? null,
             'requested_by' => $this->user->userProfile->fullname ?? $this->user->username ?? 'Unknown',
             'approved_by'  => $this->approvedBy->userProfile->fullname ?? $this->approvedBy->username ?? null,
+            'approval_logs' => ApprovalLogResource::collection($this->whenLoaded('approvalLogs')),
             'created_at'   => $this->created_at,
             'updated_at'   => $this->updated_at,
         ];

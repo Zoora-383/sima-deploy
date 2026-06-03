@@ -5,6 +5,7 @@ use App\Http\Controllers\api\ItemCategoryController;
 use App\Http\Controllers\api\ProfileController;
 use App\Http\Controllers\api\RoleController;
 use App\Http\Controllers\api\ItemController;
+use App\Http\Controllers\api\MaintenanceController;
 use App\Http\Controllers\api\UserController;
 use App\Http\Middleware\JwtCheckMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -57,6 +58,14 @@ Route::prefix('v1')->group(function () {
             Route::get('/items/{uuid}', [ItemController::class, 'show']);
             Route::delete('/items/{uuid}', [ItemController::class, 'destroy']);
             Route::put('/items/{uuid}', [ItemController::class, 'update']);
+            Route::patch('/items/{uuid}/status', [ItemController::class, 'updateStatus']);
+
+            // CRUD Maintenance
+            Route::post('/maintenance', [MaintenanceController::class, 'store']);
+            Route::get('/maintenance', [MaintenanceController::class, 'index']);
+            Route::get('/maintenance/{uuid}', [MaintenanceController::class, 'show']);
+            Route::delete('/maintenance/{uuid}', [MaintenanceController::class, 'destroy']);
+            Route::patch('/maintenance/{uuid}/status', [MaintenanceController::class, 'updateStatus']);
         });
     });
 });
