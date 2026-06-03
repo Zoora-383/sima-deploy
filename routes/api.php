@@ -15,7 +15,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
         Route::middleware(JwtCheckMiddleware::class)->group(function () {
-            Route::post('/reset-password', [AuthController::class, 'resetPassword']);
             Route::post('/change-password', [AuthController::class, 'changePassword']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/refresh', [AuthController::class, 'refresh']);
@@ -30,6 +29,9 @@ Route::prefix('v1')->group(function () {
 
         // KHUSUS SUPER ADMIN ROUTES
         Route::middleware('role:super-admin')->group(function () {
+            // RESET Password By SUPER ADMIN
+            Route::post('/reset-password/{uuid}', [AuthController::class, 'resetPassword']);
+
             // CRUD Users
             Route::post('/admin/users', [UserController::class, 'store']);
             Route::get('/admin/users', [UserController::class, 'index']);
