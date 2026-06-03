@@ -4,6 +4,7 @@ namespace App\Http\Requests\Item;
 
 // use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ItemStoreRequest extends FormRequest
 {
@@ -22,13 +23,18 @@ class ItemStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'category'    => 'required|string|exists:item_categories,name',
-            'name'        => 'required|string',
-            'type'        => 'required|string|in:logistic,non-logistic,service',
-            'units'       => 'nullable|integer',
-            'image_item'  => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'location'    => 'nullable|string',
-            'description' => 'nullable|string',
+            'name'        => ['required', 'string', 'max:255'],
+            'type'        => ['required', 'in:logistic,non-logistic,service'],
+            'category'    => ['required', 'string'],
+            'location'    => ['nullable', 'string'],
+            'description' => ['nullable', 'string'],
+            'image_item'  => ['nullable', 'image', 'max:2048'],
+            'units' => [
+                Rule::requiredIf(fn() => $this->input('type') === 'logistic'),
+                'nullable',
+                'integer',
+                'min:1',
+            ],
         ];
     }
 }

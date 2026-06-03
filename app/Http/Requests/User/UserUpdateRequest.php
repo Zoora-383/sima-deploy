@@ -39,7 +39,6 @@ class UserUpdateRequest extends FormRequest
                 // Wajib di-ignore juga biar gak bentrok sama username dia saat ini
                 Rule::unique('users', 'username')->ignore($this->route('uuid'), 'uuid')
             ],
-            'password'  => 'sometimes|string|min:6',
             'fullname' => 'sometimes|string|max:255',
             'phone'     => 'sometimes|string|max:20',
             'location'   => 'sometimes|string',

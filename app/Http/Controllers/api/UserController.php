@@ -104,12 +104,12 @@ class UserController extends Controller
         }
     }
 
-    public function updateStatus(UserUpdateRequest $request, string $uuid)
+    public function updateStatus(string $uuid)
     {
         try {
             $user = $this->userService->getUserById($uuid);
-            $newStatus = !$user->is_active; 
-            
+            $newStatus = !$user->is_active;
+
             $updatedUser = $this->userService->updateUserStatus($uuid, $newStatus);
 
             $message = $newStatus ? 'User activated successfully' : 'User blocked successfully';

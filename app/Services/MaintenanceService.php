@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\ApprovalLog;
 use App\Models\Item;
 use App\Models\MaintenanceRequest;
 use App\Models\User;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -32,6 +34,22 @@ class MaintenanceService
         }
 
         return $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Record a log entry for any approvable model (polymorphic).
+     */
+    private function recordLog(Model $approvable, string $statusFrom, string $statusTo, ?string $note, int $userId): void
+    {
+        ApprovalLog::create([
+            'uuid'          => Str::uuid()->toString(),
+            'approvable_id'   => $approvable->id,
+            'approvable_type' => get_class($approvable),
+            'user_id'       => $userId,
+            'status_from'   => $statusFrom,
+            'status_to'     => $statusTo,
+            'note'          => $note,
+        ]);
     }
 
     public function addMaintenance(array $data, User $currentUser)
@@ -69,45 +87,6 @@ class MaintenanceService
         }
     }
 
-    /**
-     * Update status of maintenance request (Approval, Revision, etc.)
-     * 
-     * @param string $maintenanceUuid
-     * @param array $data (status, note)
-     * @param User $currentUser
-     * @return MaintenanceRequest
-     * @throws NotFoundHttpException|Exception
-     */
-    public function updateStatus(string $maintenanceUuid, array $data, User $currentUser): MaintenanceRequest
-    {
-        $maintenance = MaintenanceRequest::where('uuid', $maintenanceUuid)->first();
-
-        if (!$maintenance) {
-            throw new NotFoundHttpException('Maintenance not found.');
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $statusFrom = $maintenance->status;
-            $statusTo = $data['status'];
-            $note = $data['note'] ?? null;
-
-            $maintenance->update([
-                'status' => $statusTo
-            ]);
-
-            $this->recordLog($maintenance, $statusFrom, $statusTo, $note, $currentUser->id);
-
-            DB::commit();
-
-            return $maintenance->fresh();
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw new Exception("Failed to update maintenance status: " . $e->getMessage());
-        }
-    }
-
     public function getAllMaintenance()
     {
         try {
@@ -121,7 +100,7 @@ class MaintenanceService
     {
         try {
             $maintenance = MaintenanceRequest::with([
-                'item.category', 
+                'item.category',
                 'requester.userProfile',
                 'approvalLogs.user.userProfile'
             ])->where('uuid', $maintenanceUuid)->first();
@@ -149,6 +128,56 @@ class MaintenanceService
             return $maintenance;
         } catch (Exception $e) {
             throw new Exception("Gagal mengambil data maintenance: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Summary of updateStatus
+     * @param string $maintenanceUuid
+     * @param array $data
+     * @param User $currentUser
+     * @throws NotFoundHttpException
+     * @throws \InvalidArgumentException
+     * @throws Exception
+     * @return MaintenanceRequest|null
+     */
+    public function updateStatus(string $maintenanceUuid, array $data, User $currentUser): MaintenanceRequest
+    {
+        $maintenance = MaintenanceRequest::where('uuid', $maintenanceUuid)->first();
+
+        if (!$maintenance) {
+            throw new NotFoundHttpException('Maintenance not found.');
+        }
+
+        $statusFrom = $maintenance->status;
+        $statusTo   = $data['status'];
+
+        $roleTransitions = [
+            'admin'    => ['in_progress'  => ['done']],
+            'kasi'     => ['pending_kasi' => ['pending_pust', 'rejected']],
+            'kel_pust' => ['pending_pust' => ['in_progress',  'rejected']],
+        ];
+
+        $allowed = $roleTransitions[$currentUser->role][$statusFrom] ?? [];
+
+        if (!in_array($statusTo, $allowed)) {
+            throw new \InvalidArgumentException(
+                "Anda tidak memiliki izin untuk melakukan transisi status ini."
+            );
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $maintenance->update(['status' => $statusTo]);
+            $this->recordLog($maintenance, $statusFrom, $statusTo, $data['note'] ?? null, $currentUser->id);
+
+            DB::commit();
+
+            return $maintenance->fresh();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to update maintenance status: " . $e->getMessage());
         }
     }
 }

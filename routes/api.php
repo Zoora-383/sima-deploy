@@ -15,11 +15,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
         Route::middleware(JwtCheckMiddleware::class)->group(function () {
+            Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+            Route::post('/change-password', [AuthController::class, 'changePassword']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/refresh', [AuthController::class, 'refresh']);
         });
     });
-
 
     Route::middleware(JwtCheckMiddleware::class)->group(function () {
         // KHUSUS USER YANG LOGIN (AKUNNYA MEREKA SENDIRI)
@@ -44,28 +45,32 @@ Route::prefix('v1')->group(function () {
             Route::put('/roles/{uuid}', [RoleController::class, 'update']);
         });
 
-        // KHUSUS ADMIN ROUTES
         Route::middleware('role:admin')->group(function () {
             // CRUD Items Category
             Route::post('/item-category', [ItemCategoryController::class, 'store']);
-            Route::get('/item-category', [ItemCategoryController::class, 'index']);
             Route::delete('/item-category/{uuid}', [ItemCategoryController::class, 'destroy']);
             Route::put('/item-category/{uuid}', [ItemCategoryController::class, 'update']);
 
-            // CRUD Items
+            // CRUD Items (write only)
             Route::post('/items', [ItemController::class, 'store']);
-            Route::get('/items', [ItemController::class, 'index']);
-            Route::get('/items/{uuid}', [ItemController::class, 'show']);
             Route::delete('/items/{uuid}', [ItemController::class, 'destroy']);
             Route::put('/items/{uuid}', [ItemController::class, 'update']);
             Route::patch('/items/{uuid}/status', [ItemController::class, 'updateStatus']);
 
-            // CRUD Maintenance
+            // CRUD Maintenance (write only)
             Route::post('/maintenance', [MaintenanceController::class, 'store']);
-            Route::get('/maintenance', [MaintenanceController::class, 'index']);
-            Route::get('/maintenance/{uuid}', [MaintenanceController::class, 'show']);
             Route::delete('/maintenance/{uuid}', [MaintenanceController::class, 'destroy']);
             Route::patch('/maintenance/{uuid}/status', [MaintenanceController::class, 'updateStatus']);
+        });
+
+        Route::middleware('role:admin,super-admin,kasi,kel_pust')->group(function () {
+            Route::get('/item-category', [ItemCategoryController::class, 'index']);
+
+            Route::get('/items', [ItemController::class, 'index']);
+            Route::get('/items/{uuid}', [ItemController::class, 'show']);
+
+            Route::get('/maintenance', [MaintenanceController::class, 'index']);
+            Route::get('/maintenance/{uuid}', [MaintenanceController::class, 'show']);
         });
     });
 });

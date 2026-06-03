@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Maintenance\MaintenanceStatusRequest;
 use App\Http\Requests\Maintenance\MaintenanceStoreRequest;
 use App\Http\Resources\MaintenanceDetailResource;
 use App\Http\Resources\MaintenanceResource;
-use App\Models\MaintenanceRequest;
 use App\Services\MaintenanceService;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -73,6 +73,8 @@ class MaintenanceController extends Controller
             $maintenance = $this->maintenanceService->updateStatus($uuid, $request->validated(), $currentUser);
 
             return $this->successResponse(new MaintenanceDetailResource($maintenance), 'Updated maintenance status successfully');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
             Log::error('Maintenance Update Status Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to update maintenance status.');

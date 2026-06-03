@@ -2,19 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\ApprovalLog;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
-use App\Traits\CloudinaryUpload;
 use Exception;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ItemService
 {
-    use CloudinaryUpload;
-
     // METHODS ITEMS CATEGORY
 
     /**
@@ -100,6 +100,35 @@ class ItemService
 
     // METHOD ITEM
 
+    private function recordLog(Model $approvable, string $statusFrom, string $statusTo, ?string $note, int $userId): void
+    {
+        ApprovalLog::create([
+            'uuid'          => Str::uuid()->toString(),
+            'approvable_id'   => $approvable->id,
+            'approvable_type' => get_class($approvable),
+            'user_id'       => $userId,
+            'status_from'   => $statusFrom,
+            'status_to'     => $statusTo,
+            'note'          => $note,
+        ]);
+    }
+
+    private function uploadImage($file, string $folder): string
+    {
+        $path = $file->store($folder, 's3');
+        return Storage::disk('s3')->url($path);
+    }
+
+    private function deleteOldImage(?string $imageUrl): void
+    {
+        if (!$imageUrl) return;
+
+        $baseUrl = Storage::disk('s3')->url('');
+        $path = str_replace($baseUrl, '', $imageUrl);
+
+        Storage::disk('s3')->delete($path);
+    }
+
     /**
      * Generate a unique code for the item
      * @param string $type
@@ -163,7 +192,7 @@ class ItemService
                 'name'        => $data['name'],
                 'type'        => $data['type'],
                 'status'      => 'draft',
-                'units'       => $data['units']       ?? null,
+                'units' => $data['type'] === 'logistic' ? ($data['units'] ?? null) : null,
                 'image_item'  => $imagePath,
                 'location'    => $data['location']    ?? null,
                 'description' => $data['description'] ?? null,
@@ -269,7 +298,7 @@ class ItemService
                     : $item->code_item,
                 'name'        => $data['name']        ?? $item->name,
                 'type'        => $data['type']         ?? $item->type,
-                'units'       => $data['units']        ?? $item->units,
+                'units' => $data['type'] === 'logistic' || $item->type === 'logistic' ? ($data['units'] ?? $item->units) : null,
                 'image_item'  => $imagePath,
                 'location'    => $data['location']     ?? $item->location,
                 'description' => $data['description']  ?? $item->description,
@@ -332,22 +361,38 @@ class ItemService
             throw new NotFoundHttpException('Item not found.');
         }
 
+        $statusFrom = $item->status;
+        $statusTo   = $data['status'];
+
+        $roleTransitions = [
+            'admin'    => [
+                'draft'    => ['pending'],
+                'revision' => ['pending'],
+            ],
+            'kasi'     => [
+                'pending'  => ['active', 'revision', 'disposed'],
+            ],
+        ];
+
+        $allowed = $roleTransitions[$currentUser->role][$statusFrom] ?? [];
+
+        if (!in_array($statusTo, $allowed)) {
+            throw new \InvalidArgumentException(
+                "Anda tidak memiliki izin untuk melakukan transisi status ini."
+            );
+        }
+
         try {
             DB::beginTransaction();
 
-            $statusFrom = $item->status;
-            $statusTo = $data['status'];
-            $note = $data['note'] ?? null;
-
             $updateData = ['status' => $statusTo];
-            
+
             if ($statusTo === 'active') {
                 $updateData['approved_by'] = $currentUser->id;
             }
 
             $item->update($updateData);
-
-            $this->recordLog($item, $statusFrom, $statusTo, $note, $currentUser->id);
+            $this->recordLog($item, $statusFrom, $statusTo, $data['note'] ?? null, $currentUser->id);
 
             DB::commit();
             return $item->fresh();

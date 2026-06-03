@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\api;
 
-// use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Services\AuthService;
 use Exception;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
 class AuthController extends Controller
@@ -31,11 +32,17 @@ class AuthController extends Controller
             ];
 
             $guard = auth('api');
-            $token = $this->authService->login($credentials, $guard);
+            $result = $this->authService->login($credentials, $guard);
+
+            $data = [
+                'accessToken'           => $result['accessToken'],
+                'force_password_change' => $result['force_password_change'],
+            ];
 
             return $this->successResponse(
-                ['accessToken' => $token],
-                'Login successfully'
+                $data,
+                'Login successfully',
+                200
             );
         } catch (AuthenticationException $e) {
             return $this->errorResponse($e->getMessage(), 401);
@@ -73,6 +80,33 @@ class AuthController extends Controller
         } catch (Exception $e) {
             Log::error('Refresh Token Error: ' . $e->getMessage());
             return $this->errorResponse('Server error during token refresh');
+        }
+    }
+
+    public function resetPassword(string $uuid)
+    {
+        try {
+            $resetPassword = $this->authService->resetPassword($uuid);
+
+            return $this->successResponse(null, 'Reset password successfully');
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (Exception $e) {
+            Log::error('User Status Update Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to update user status.');
+        }
+    }
+
+    public function changePassword(ChangePasswordRequest $request)
+    {
+        try {
+            $currentUser = auth('api')->user();
+            $this->authService->changePassword($currentUser->uuid, $request->validated('password'));
+
+            return $this->successResponse(null, 'Password changed successfully');
+        } catch (Exception $e) {
+            Log::error('Change Password Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to change password.');
         }
     }
 }

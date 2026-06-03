@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('code_item')->unique();
             $table->string('name');
             $table->enum('type', ['logistic', 'non-logistic', 'service']);
-            $table->enum('status', ['draft', 'active', 'maintenance', 'disposed'])->default('draft');
+            $table->enum('status', ['draft', 'pending', 'revision', 'active', 'maintenance', 'disposed'])->default('draft')->change();
             $table->unsignedInteger('units')->nullable();
             $table->string('image_item')->nullable();
             $table->string('location')->nullable();

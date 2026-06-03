@@ -27,7 +27,7 @@ class UserService
 
         $checkUniqueUsername = User::where('username', $username)->count();
         if ($checkUniqueUsername > 0) {
-            $username = $username . '-' . ($checkUniqueUsername + 1);
+            $username = $username . ($checkUniqueUsername + 1);
         }
 
         return $username;
@@ -81,7 +81,7 @@ class UserService
 
     /**
      * @param string $userUuid
-     * @return $user
+     * @return User
      * @throws NotFoundHttpException|Exception
      */
     public function getUserById(string $userUuid)
@@ -142,10 +142,8 @@ class UserService
             $userData = [];
 
             if (isset($data['role_id']))   $userData['role_id'] = $data['role_id'];
-            // if (isset($data['is_active'])) $userData['is_active'] = $data['is_active'];
             if (isset($data['email']))     $userData['email'] = $data['email'];
             if (isset($data['username'])) $userData['username'] = $data['username'];
-            if (!empty($data['password'])) $userData['password'] = Hash::make($data['password']);
 
             if (!empty($userData)) {
                 $user->update($userData);
@@ -169,6 +167,14 @@ class UserService
         }
     }
 
+    /**
+     * Summary of updateUserStatus
+     * @param string $userUuid
+     * @param bool $status
+     * @throws NotFoundHttpException
+     * @throws Exception
+     * @return User|\stdClass
+     */
     public function updateUserStatus(string $userUuid, bool $status)
     {
         $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
@@ -207,19 +213,25 @@ class UserService
             $existingProfile = $currentUser->userProfile;
             $avatarPath = $existingProfile->avatar_url ?? null;
 
-            // if ($file) {
-            //     $this->deleteOldImage($avatarPath);
-            //     $avatarPath = $this->uploadImage($file, 'avatars');
-            // }
-
             if ($file) {
                 if ($avatarPath) {
                     $oldPath = parse_url($avatarPath, PHP_URL_PATH);
                     $oldPath = ltrim($oldPath, '/');
+
+                    $bucket = config('filesystems.disks.s3.bucket');
+                    if (str_starts_with($oldPath, $bucket . '/')) {
+                        $oldPath = substr($oldPath, strlen($bucket) + 1);
+                    }
+
+                    $exists = Storage::disk('s3')->exists($oldPath);
+                    Log::info('Deleting old avatar', [
+                        'path' => $oldPath,
+                        'exists' => $exists
+                    ]);
+
                     Storage::disk('s3')->delete($oldPath);
                 }
 
-                // Upload baru
                 $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
                 $path = Storage::disk('s3')->putFileAs('avatars', $file, $filename);
                 $avatarPath = Storage::disk('s3')->url($path);
