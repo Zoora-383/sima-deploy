@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Maintenance;
 
-// use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class MaintenanceStoreRequest extends FormRequest
+class MaintenanceUpdateRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -16,20 +16,20 @@ class MaintenanceStoreRequest extends FormRequest
     }
 
     /**
-     * Summary of rules
-     * @return array{description: string, estimated_day: string, priority: string, status: string, target_completion_expectations: string, title: string, total_estimated_cost: string, type: string}
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'item_id'       => 'required|uuid|exists:items,uuid',
             'title'         => 'required|string|max:255',
             'priority'      => 'required|in:high,medium,low',
             'type'          => 'required|in:korektif,preventif',
             'description'   => 'nullable|string',
             'estimated_day' => 'nullable|integer',
             'target_completion_expectations' => 'nullable|date',
-            'total_estimated_cost'           => 'nullable|numeric'
+            'total_estimated_cost'           => 'nullable|numeric',
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\Maintenance\MaintenanceStatusRequest;
 use App\Http\Requests\Maintenance\MaintenanceStoreRequest;
 use App\Http\Resources\MaintenanceDetailResource;
 use App\Http\Resources\MaintenanceResource;
+use App\Models\MaintenanceRequest;
 use App\Services\MaintenanceService;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -59,10 +60,23 @@ class MaintenanceController extends Controller
     {
         try {
             $this->maintenanceService->deleteMaintenance($uuid);
-            return $this->successResponse(null, 'Delete maintenance successfully');
+            return $this->successResponse(null, 'Deleted maintenance successfully');
         } catch (Exception $e) {
             Log::error('Maintenance Destroy Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to delete maintenance.');
+        }
+    }
+
+    public function update(MaintenanceRequest $request, string $uuid)
+    {
+        try {
+            $maintenance = $this->maintenanceService->updateMaintenance($request->validated(), $uuid);
+            return $this->successResponse(new MaintenanceDetailResource($maintenance), 'Updated maintenance successfully');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
+        } catch (Exception $e) {
+            Log::error('Maintenance Update Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to update maintenance.');
         }
     }
 

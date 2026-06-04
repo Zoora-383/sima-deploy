@@ -24,7 +24,7 @@ return new class extends Migration
             $table->integer('estimated_day')->nullable();
             $table->date('target_completion_expectations')->nullable();
             $table->decimal('total_estimated_cost', 10, 2)->nullable();
-            $table->enum('status', ['pending_kasi', 'pending_pust', 'in_progress', 'done', 'rejected']);
+            $table->enum('status', ['draft', 'pending_kasi', 'pending_pust', 'in_progress', 'done', 'rejected']);
             $table->timestamps();
         });
     }

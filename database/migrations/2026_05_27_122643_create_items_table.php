@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('approved_by')->nullable()->constrained('users', 'id')->nullOnDelete();
             $table->foreignId('category_id')->constrained('item_categories', 'id')->cascadeOnDelete();
             $table->string('code_item')->unique();
             $table->string('name');

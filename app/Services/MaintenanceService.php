@@ -73,10 +73,10 @@ class MaintenanceService
                 'estimated_day' => $data['estimated_day'],
                 'target_completion_expectations' => $data['target_completion_expectations'],
                 'total_estimated_cost' => $data['total_estimated_cost'],
-                'status' => $data['status']
+                'status' => 'draft'
             ]);
 
-            $this->recordLog($newMaintenance, 'none', $data['status'], 'Maintenance request created', $currentUser->id);
+            $this->recordLog($newMaintenance, 'none', 'draft', 'Maintenance request created as draft', $currentUser->id);
 
             DB::commit();
 
@@ -132,6 +132,48 @@ class MaintenanceService
     }
 
     /**
+     * Summary of updateMaintenance
+     * @param array $data
+     * @param string $maintenanceUuid
+     * @throws NotFoundHttpException
+     * @throws \InvalidArgumentException
+     * @throws Exception
+     * @return MaintenanceRequest|\stdClass
+     */
+    public function updateMaintenance(array $data, string $maintenanceUuid)
+    {
+        $maintenance = MaintenanceRequest::where('uuid', $maintenanceUuid)->first();
+
+        if (!$maintenance) {
+            throw new NotFoundHttpException('Maintenance not found.');
+        }
+
+        $allowedStatusesForUpdate = ['draft', 'rejected'];
+
+        if (!in_array($maintenance->status, $allowedStatusesForUpdate)) {
+            throw new \InvalidArgumentException(
+                "Pengajuan tidak dapat diubah karena sedang dalam proses validasi atau pengerjaan (Status saat ini: " . str_replace('_', ' ', $maintenance->status) . ")."
+            );
+        }
+
+        try {
+            $maintenance->update([
+                'title'                  => $data['title'] ?? $maintenance->title,
+                'priority'               => $data['priority'] ?? $maintenance->priority,
+                'type'                   => $data['type'] ?? $maintenance->type,
+                'description'            => $data['description'] ?? $maintenance->description,
+                'estimated_day'          => $data['estimated_day'] ?? $maintenance->estimated_day,
+                'target_completion_expectations' => $data['target_completion_expectations'] ?? $maintenance->target_completion_expectations,
+                'total_estimated_cost'   => $data['total_estimated_cost'] ?? $maintenance->total_estimated_cost,
+            ]);
+
+            return $maintenance;
+        } catch (Exception $e) {
+            throw new Exception("Gagal memperbarui data maintenance: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Summary of updateStatus
      * @param string $maintenanceUuid
      * @param array $data
@@ -152,8 +194,19 @@ class MaintenanceService
         $statusFrom = $maintenance->status;
         $statusTo   = $data['status'];
 
+        if ($statusFrom === $statusTo) {
+            throw new \InvalidArgumentException("Status baru tidak boleh sama dengan status saat ini.");
+        }
+
         $roleTransitions = [
-            'admin'    => ['in_progress'  => ['done']],
+            'admin'    => [
+                'draft'        => ['pending_kasi'],
+                'in_progress'  => ['done'],
+                'pending_kasi' => ['rejected'],
+                'pending_pust' => ['rejected'],
+            ],
+
+
             'kasi'     => ['pending_kasi' => ['pending_pust', 'rejected']],
             'kel_pust' => ['pending_pust' => ['in_progress',  'rejected']],
         ];
@@ -170,7 +223,8 @@ class MaintenanceService
             DB::beginTransaction();
 
             $maintenance->update(['status' => $statusTo]);
-            $this->recordLog($maintenance, $statusFrom, $statusTo, $data['note'] ?? null, $currentUser->id);
+            $logNote = $data['note'] ?? "Status diubah dari " . str_replace('_', ' ', $statusFrom) . " menjadi " . str_replace('_', ' ', $statusTo);
+            $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
 
             DB::commit();
 

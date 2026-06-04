@@ -62,6 +62,7 @@ Route::prefix('v1')->group(function () {
             // CRUD Maintenance (write only)
             Route::post('/maintenance', [MaintenanceController::class, 'store']);
             Route::delete('/maintenance/{uuid}', [MaintenanceController::class, 'destroy']);
+            Route::put('/maintenance/{uuid}', [MaintenanceController::class, 'update']);
             Route::patch('/maintenance/{uuid}/status', [MaintenanceController::class, 'updateStatus']);
         });
 
