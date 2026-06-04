@@ -234,4 +234,6 @@ class MaintenanceService
             throw new Exception("Failed to update maintenance status: " . $e->getMessage());
         }
     }
+
+    // METHOD MAINTENANCE REQUEST ITEMS
 }
