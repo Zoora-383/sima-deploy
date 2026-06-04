@@ -11,16 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('approval_logs', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->morphs('approvable');
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('status_from');
-            $table->string('status_to');
-            $table->text('note')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('approval_logs')) {
+            Schema::create('approval_logs', function (Blueprint $table) {
+                $table->id();
+                $table->char('uuid', 36);
+                $table->string('approvable_type');
+                $table->unsignedBigInteger('approvable_id');
+                $table->unsignedBigInteger('user_id');
+                $table->string('status_from');
+                $table->string('status_to');
+                $table->text('note')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**
