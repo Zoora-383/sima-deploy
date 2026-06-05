@@ -233,7 +233,7 @@ class UserService
                 }
 
                 $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-                $path = Storage::disk('s3')->putFileAs('avatars', $file, $filename);
+                $path = Storage::disk('s3')->putFileAs('avatars', $file, $filename, 'public');
                 $avatarPath = Storage::disk('s3')->url($path);
             }
 
