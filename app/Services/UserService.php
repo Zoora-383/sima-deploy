@@ -144,7 +144,7 @@ class UserService
             if (isset($data['role'])) {
                 $role = Role::where('name', $data['role'])->first();
                 if ($role) {
-                    $userData['role'] = $role->id;
+                    $userData['role_id'] = $role->id;
                 }
             }
 
