@@ -23,9 +23,10 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware(JwtCheckMiddleware::class)->group(function () {
         // KHUSUS USER YANG LOGIN (AKUNNYA MEREKA SENDIRI)
-        Route::post('/profile', [ProfileController::class, 'store']);
+        Route::patch('/profile', [ProfileController::class, 'store']);
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::delete('/profile', [ProfileController::class, 'destroy']);
+        Route::put('/profile/reset-password', [ProfileController::class, 'updateMyPassword']);
 
         // KHUSUS SUPER ADMIN ROUTES
         Route::middleware('role:super-admin')->group(function () {

@@ -247,9 +247,11 @@ class UserService
                 ['user_id' => $currentUser->id],
                 [
                     'uuid'       => $existingProfile->uuid ?? Str::uuid()->toString(),
-                    'fullname'   => $data['fullname']  ?? $existingProfile->fullname  ?? null,
-                    'phone'      => $data['phone']     ?? $existingProfile->phone     ?? null,
-                    'location'   => $data['location']  ?? $existingProfile->location  ?? null,
+                    'fullname'   => $data['fullname']     ?? $existingProfile->fullname  ?? null,
+                    'phone'      => $data['phone']        ?? $existingProfile->phone     ?? null,
+                    'email'      => $data['email']        ?? $existingProfile->email     ?? null,
+                    'username'      => $data['username']  ?? $existingProfile->username  ?? null,
+                    'location'   => $data['location']     ?? $existingProfile->location  ?? null,
                     'avatar_url' => $avatarPath,
                 ]
             );
@@ -295,6 +297,31 @@ class UserService
             $user->delete();
         } catch (Exception $e) {
             throw new Exception("Failed to delete account: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Summary of changeMyPassword
+     * @param array $data
+     * @param User $currentUser
+     * @throws Exception
+     * @return User
+     */
+    public function changeMyPassword(array $data, User $currentUser)
+    {
+        try {
+            DB::beginTransaction();
+
+            $currentUser->update([
+                'password' => Hash::make($data['password']) // Ambil dari key array & di-hash
+            ]);
+
+            DB::commit();
+
+            return $currentUser;
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to change password: " . $e->getMessage());
         }
     }
 }

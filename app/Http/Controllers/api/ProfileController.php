@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\User\ProfileStoreRequest;
 use App\Http\Resources\UserDetailResource;
 use App\Http\Resources\UserProfileResource;
@@ -75,6 +76,24 @@ class ProfileController extends Controller
             return $this->errorResponse($e->getMessage(), 404);
         } catch (Exception $e) {
             Log::error('Profile Destroy Error: ' . $e->getMessage());
+            return $this->errorResponse('Server error');
+        }
+    }
+
+    public function updateMyPassword(ChangePasswordRequest $request)
+    {
+        try {
+            $currentUser = auth('api')->user();
+            $updatePassword = $this->userService->changeMyPassword($request->validated(), $currentUser);
+
+            return $this->successResponse(
+                null,
+                'Password changed successfully'
+            );
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (Exception $e) {
+            Log::error('Change password Error: ' . $e->getMessage());
             return $this->errorResponse('Server error');
         }
     }
