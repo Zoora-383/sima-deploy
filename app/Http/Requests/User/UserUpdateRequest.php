@@ -10,30 +10,28 @@ class UserUpdateRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; 
+        return true;
     }
 
     public function rules(): array
     {
-        // Ambil string UUID dari parameter route URL
-        $userUuid = $this->route('uuid');
-        
-        // Cari ID user aslinya di database untuk kebutuhan ignore()
-        $userId = User::where('uuid', $userUuid)->value('id');
+        $userUuid = $this->route('uuid') ?? $this->segment(3);
+
+        $user = User::where('uuid', $userUuid)->first();
+        $userId = $user ? $user->id : null;
 
         return [
             'role'     => 'sometimes|string|exists:roles,name',
             'email'    => [
                 'sometimes',
                 'email',
-                // Masukkan $userId (bukan uuid) agar ignore berfungsi normal
-                Rule::unique('users', 'email')->ignore($userId) 
+                $userId ? Rule::unique('users', 'email')->ignore($userId) : 'nullable'
             ],
             'username' => [
                 'sometimes',
                 'string',
                 'max:255',
-                Rule::unique('users', 'username')->ignore($userId)
+                $userId ? Rule::unique('users', 'username')->ignore($userId) : 'nullable'
             ],
             'fullname' => 'sometimes|string|max:255',
             'phone'    => 'sometimes|string|max:20',
