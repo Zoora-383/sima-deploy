@@ -141,7 +141,13 @@ class UserService
             DB::beginTransaction();
             $userData = [];
 
-            if (isset($data['role_id']))   $userData['role_id'] = $data['role_id'];
+            if (isset($data['role'])) {
+                $role = Role::where('name', $data['role'])->first();
+                if ($role) {
+                    $userData['role'] = $role->id;
+                }
+            }
+
             if (isset($data['email']))     $userData['email'] = $data['email'];
             if (isset($data['username'])) $userData['username'] = $data['username'];
 

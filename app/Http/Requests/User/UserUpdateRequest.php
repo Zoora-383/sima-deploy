@@ -24,7 +24,7 @@ class UserUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role' => 'sometimes|string|exists:roles,uuid',
+            'role' => 'sometimes|string|exists:roles,name',
             // is_active karena di database lu tinyInteger(0/1), pakai boolean atau in:0,1
             // 'is_active' => 'sometimes|in:0,1',
             'email'     => [
