@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\User\ChangeMyPasswordRequest;
 use App\Http\Requests\User\ProfileStoreRequest;
 use App\Http\Resources\UserDetailResource;
 use App\Http\Resources\UserProfileResource;
@@ -80,7 +80,7 @@ class ProfileController extends Controller
         }
     }
 
-    public function updateMyPassword(ChangePasswordRequest $request)
+    public function updateMyPassword(ChangeMyPasswordRequest $request)
     {
         try {
             $currentUser = auth('api')->user();
