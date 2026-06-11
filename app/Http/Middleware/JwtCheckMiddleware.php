@@ -23,6 +23,13 @@ class JwtCheckMiddleware
                     'message' => 'User not found.'
                 ], 401);
             }
+
+            if (! $user->is_active) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Your account is inactive. Please contact administrator.'
+                ], 403);
+            }
         } catch (TokenInvalidException $e) {
             return response()->json([
                 'status'  => 'error',

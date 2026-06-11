@@ -23,10 +23,10 @@ class ItemStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'        => ['required', 'string', 'max:255'],
-            'type'        => ['required', 'in:logistic,non-logistic,service'],
-            'category'    => ['required', 'string'],
-            'location'    => ['nullable', 'string'],
+            'name'          => ['required', 'string', 'max:255'],
+            'type'          => ['required', 'in:logistic,non-logistic,service'],
+            'category_uuid' => ['required', 'uuid', 'exists:item_categories,uuid'],
+            'location'      => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'image_item'  => ['nullable', 'image', 'max:2048'],
             'units' => [

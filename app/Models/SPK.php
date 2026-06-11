@@ -8,5 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable(['request_id', 'nomor_spk', 'tanggal_mulai_efektif', 'tanggal_selesai_target', 'pagu_anggaran_disetujui'])]
 class SPK extends Model
 {
-
+    public function approvalLogs()
+    {
+        return $this->morphMany(ApprovalLog::class, 'approvable');
+    }
 }

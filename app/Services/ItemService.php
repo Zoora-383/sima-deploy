@@ -6,6 +6,7 @@ use App\Models\ApprovalLog;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
+use App\Traits\RecordApprovalLog;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ItemService
 {
+    use RecordApprovalLog;
+
     // METHODS ITEMS CATEGORY
 
     /**
@@ -100,19 +103,6 @@ class ItemService
 
     // METHOD ITEM
 
-    private function recordLog(Model $approvable, string $statusFrom, string $statusTo, ?string $note, int $userId): void
-    {
-        ApprovalLog::create([
-            'uuid'          => Str::uuid()->toString(),
-            'approvable_id'   => $approvable->id,
-            'approvable_type' => get_class($approvable),
-            'user_id'       => $userId,
-            'status_from'   => $statusFrom,
-            'status_to'     => $statusTo,
-            'note'          => $note,
-        ]);
-    }
-
     private function uploadImage($file, string $folder): string
     {
         $path = $file->store($folder, 's3');
@@ -169,7 +159,7 @@ class ItemService
      */
     public function createItem(array $data, $file = null, User $currentUser): Item
     {
-        $category = ItemCategory::where('name', $data['category'])->first();
+        $category = ItemCategory::where('uuid', $data['category_uuid'])->first();
 
         if (!$category) {
             throw new NotFoundHttpException('Item category not found.');
@@ -275,8 +265,8 @@ class ItemService
             DB::beginTransaction();
 
             $category = $item->category;
-            if (isset($data['category'])) {
-                $category = ItemCategory::where('name', $data['category'])->first();
+            if (isset($data['category_uuid'])) {
+                $category = ItemCategory::where('uuid', $data['category_uuid'])->first();
                 if (!$category) {
                     throw new NotFoundHttpException('Item category not found.');
                 }
@@ -346,12 +336,14 @@ class ItemService
     }
 
     /**
-     * Update status of an item (Approve, Revision, etc.)
+     * Summary of updateStatus
      * @param string $itemUuid
-     * @param array $data (status, note)
+     * @param array $data
      * @param User $currentUser
-     * @return Item
-     * @throws NotFoundHttpException|Exception
+     * @throws NotFoundHttpException
+     * @throws \InvalidArgumentException
+     * @throws Exception
+     * @return Item|null
      */
     public function updateStatus(string $itemUuid, array $data, User $currentUser): Item
     {
@@ -366,11 +358,14 @@ class ItemService
 
         $roleTransitions = [
             'admin'    => [
-                'draft'    => ['pending'],
-                'revision' => ['pending'],
+                'draft'    => ['pending_kasi'],
+                'revision' => ['pending_kasi'],
             ],
             'kasi'     => [
-                'pending'  => ['active', 'revision', 'disposed'],
+                'pending_kasi' => ['pending_pust', 'revision'],
+            ],
+            'kel_pust' => [
+                'pending_pust' => ['active', 'revision'],
             ],
         ];
 

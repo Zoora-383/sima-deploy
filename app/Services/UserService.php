@@ -40,7 +40,7 @@ class UserService
      */
     public function addUser(array $data)
     {
-        $role = Role::where('name', $data['role'])->first();
+        $role = Role::where('uuid', $data['role_uuid'])->first();
         try {
             DB::beginTransaction();
 
@@ -141,8 +141,8 @@ class UserService
             DB::beginTransaction();
             $userData = [];
 
-            if (isset($data['role'])) {
-                $role = Role::where('name', $data['role'])->first();
+            if (isset($data['role_uuid'])) {
+                $role = Role::where('uuid', $data['role_uuid'])->first();
                 if ($role) {
                     $userData['role_id'] = $role->id;
                 }
@@ -217,7 +217,7 @@ class UserService
             DB::beginTransaction();
 
             $existingProfile = $currentUser->userProfile;
-            $avatarPath = $existingProfile->avatar_url ?? null;
+            $avatarPath = $existingProfile?->avatar_url;
 
             if ($file) {
                 if ($avatarPath) {
@@ -247,11 +247,11 @@ class UserService
                 ['user_id' => $currentUser->id],
                 [
                     'uuid'       => $existingProfile->uuid ?? Str::uuid()->toString(),
-                    'fullname'   => $data['fullname']     ?? $existingProfile->fullname  ?? null,
-                    'phone'      => $data['phone']        ?? $existingProfile->phone     ?? null,
-                    'email'      => $data['email']        ?? $existingProfile->email     ?? null,
-                    'username'      => $data['username']  ?? $existingProfile->username  ?? null,
-                    'location'   => $data['location']     ?? $existingProfile->location  ?? null,
+                    'fullname'   => $data['fullname']     ?? $existingProfile?->fullname,
+                    'phone'      => $data['phone']        ?? $existingProfile?->phone,
+                    'email'      => $data['email']        ?? $existingProfile?->email,
+                    'username'   => $data['username']     ?? $existingProfile?->username,
+                    'location'   => $data['location']     ?? $existingProfile?->location,
                     'avatar_url' => $avatarPath,
                 ]
             );

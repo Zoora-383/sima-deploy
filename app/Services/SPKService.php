@@ -2,15 +2,19 @@
 
 namespace App\Services;
 
-use App\Models\ApprovalLog;
 use App\Models\SPK;
 use App\Models\User;
+use App\Traits\RecordApprovalLog;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class SPKService
 {
+    use RecordApprovalLog;
+
     public static function generateNomorSpk(): string
     {
         $prefix = 'SPK';
@@ -37,37 +41,102 @@ class SPKService
             DB::beginTransaction();
 
             $newSpk = SPK::create([
-                'request_id' => $currentUser,
-                'nomor_spk'  => $this->generateNomorSpk(),
+                'uuid'                    => Str::uuid()->toString(),
+                'maintenance_id'          => $data['maintenance_id'],
+                'nomor_spk'               => $this->generateNomorSpk(),
                 'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif'],
                 'tanggal_selesai_target'  => $data['tanggal_selesai_target'],
                 'pagu_anggaran_disetujui' => $data['pagu_anggaran_disetujui'],
             ]);
 
+            $this->recordLog(
+                $newSpk,
+                'none',
+                'approved',
+                $data['note'] ?? 'SPK otomatis disetujui saat pembuatan dari data maintenance.',
+                $currentUser->id
+            );
+
             DB::commit();
 
-            return $newSpk;
+            return $newSpk->load('approvalLogs');
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to update role: " . $e->getMessage());
+            throw new Exception("Gagal membuat SPK dari Maintenance: " . $e->getMessage());
         }
     }
 
     public function getAllSPK()
     {
         try {
-            return SPK::select('name', 'image_item', 'code_item', 'location', 'type', 'uuid')->get();
+            return SPK::with('approvalLogs.user')
+                ->latest()
+                ->get();
         } catch (Exception $e) {
-            throw new Exception("Failed to update role: " . $e->getMessage());
+            throw new Exception("Failed to get all SPK: " . $e->getMessage());
         }
     }
 
-    public function getDetailSpk(string $uuid)
+    public function getDetailSpk(string $spkUuid)
     {
-        try {
+        $spkDetail = SPK::with(['maintenance', 'approvalLogs.user'])
+            ->where('uuid', $spkUuid)
+            ->first();
 
+        if (!$spkDetail) {
+            throw new NotFoundHttpException('SPK tidak ditemukan.');
+        }
+
+        try {
+            return $spkDetail;
         } catch (Exception $e) {
-            throw new Exception("Failed to update role: " . $e->getMessage());
+            throw new Exception("Failed to get detail SPK: " . $e->getMessage());
+        }
+    }
+
+    public function deleteSpk(string $SpkUuid)
+    {
+        $spkDetail = SPK::where('uuid', $SpkUuid)->first();
+
+        if (!$spkDetail) {
+            throw new NotFoundHttpException('Spk not found.');
+        }
+
+        try {
+            $spkDetail->delete();
+
+            return $spkDetail;
+        } catch (Exception $e) {
+            throw new Exception("Failed to delete spk: " . $e->getMessage());
+        }
+    }
+
+    public function updateSpk(array $data, string $spkUuid)
+    {
+        $spk = SPK::where('uuid', $spkUuid)->first();
+
+        if (!$spk) {
+            throw new NotFoundHttpException('SPK tidak ditemukan.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $updateData = [];
+
+            if (isset($data['tanggal_mulai_efektif']))   $updateData['tanggal_mulai_efektif']   = $data['tanggal_mulai_efektif'];
+            if (isset($data['tanggal_selesai_target']))  $updateData['tanggal_selesai_target']  = $data['tanggal_selesai_target'];
+            if (isset($data['pagu_anggaran_disetujui'])) $updateData['pagu_anggaran_disetujui'] = $data['pagu_anggaran_disetujui'];
+
+            if (!empty($updateData)) {
+                $spk->update($updateData);
+            }
+
+            DB::commit();
+            return $spk->fresh(['maintenance', 'approvalLogs.user']);
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to update SPK: " . $e->getMessage());
         }
     }
 }

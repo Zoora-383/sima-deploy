@@ -21,7 +21,7 @@ class UserUpdateRequest extends FormRequest
         $userId = $user ? $user->id : null;
 
         return [
-            'role'     => 'sometimes|string|exists:roles,name',
+            'role_uuid' => 'sometimes|uuid|exists:roles,uuid',
             'email'    => [
                 'sometimes',
                 'email',

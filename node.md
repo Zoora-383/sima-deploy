@@ -1,65 +1,63 @@
-# SimaApi-App - Project Documentation & Audit Report
+# SimaApi-App - Project Documentation & System Flow
 ---
 
 ## 1. Ringkasan Proyek (Overview)
 
-SimaApi-App adalah aplikasi backend berbasis **Laravel 13** yang dirancang untuk manajemen aset dan pengguna. Proyek ini menggunakan arsitektur **Controller -> Service -> Model** untuk memastikan kode yang mudah dipelihara dan diuji.
+SimaApi-App adalah sistem manajemen aset dan workflow pemeliharaan (maintenance) yang dirancang dengan standar keamanan tinggi dan audit trail yang lengkap.
 
 ### Core Tech Stack:
-- **Backend:** Laravel 13.x (PHP 8.3+)
-- **Authentication:** JWT (Tymon/JWT-Auth)
-- **Database:** MySQL / PostgreSQL
-- **Security:** RBAC (Role-Based Access Control) & UUID as Public Identifier
-- **API Documentation:** Scramble (Dedoc)
-- **Frontend Assets:** Vite, TailwindCSS (untuk view/dashboard internal jika ada)
+- **Backend:** Laravel 13.x (PHP 8.x)
+- **Authentication:** JWT (JSON Web Token) dengan validasi akun aktif (`is_active`).
+- **Identifier:** UUID sebagai Public Identifier (menggantikan ID integer).
+- **Architecture:** Controller -> Service -> Model (Clean Architecture).
 
 ---
 
-## 2. Arsitektur & Standar Implementasi
+## 2. Alur Kerja Aplikasi (Application Flow)
 
-### A. Alur Data (Data Flow)
-1. **Form Request:** Validasi input yang ketat sebelum masuk ke Controller.
-2. **Controller:** Hanya menangani alur HTTP (request/response) menggunakan `ApiResponse` Trait.
-3. **Service Layer:** Berisi seluruh logika bisnis, transaksi database, dan penanganan error.
-4. **API Resources:** Transformasi data model menjadi JSON yang aman dan konsisten sebelum dikirim ke client.
+Sistem ini memiliki tiga modul utama yang saling terintegrasi: **User Management**, **Item Management**, dan **Maintenance Workflow**.
 
-### B. Keamanan & Fitur Utama
-- **JWT Authentication:** Login menggunakan Email atau Username.
-- **Account Blocking:** Sistem pengecekan `is_active` secara otomatis saat login. User yang diblokir akan diputus session-nya.
-- **Public UUID:** Tidak mengekspos ID integer database di URL/API.
-- **RBAC:** Proteksi rute menggunakan Middleware `role:super-admin` untuk operasi sensitif.
+### A. Alur Inventaris (Item Management)
+Setiap item/aset yang didaftarkan harus melalui proses validasi kualitas sebelum aktif:
+1. **Admin (Requester):** Membuat data item (Status: `draft`).
+2. **Kasi (Approver 1):** Memvalidasi item dan meneruskannya ke Kepala Pustakawan (Status: `pending_pust`) atau mengembalikannya ke Admin (Status: `revision`).
+3. **Kepala Pustakawan (Final Approver):** Memberikan persetujuan akhir (Status: `active`). Hanya item berstatus `active` yang dapat digunakan dalam proses operasional/maintenance.
+
+### B. Alur Pemeliharaan & SPK (Maintenance & SPK Flow)
+Ini adalah alur paling kritis yang mengintegrasikan pengajuan perbaikan dengan penerbitan Surat Perintah Kerja (SPK):
+1. **Pengajuan:** Admin mengajukan request maintenance untuk item yang rusak (Status: `draft`).
+2. **Verifikasi Kasi:** Kasi memeriksa urgensi dan detail pengajuan (Status: `pending_pust`).
+3. **Persetujuan & Penerbitan SPK Otomatis:**
+   - **Kepala Pustakawan** melakukan review final.
+   - Saat menyetujui (`status: in_progress`), Kepala Pustakawan **wajib** menginput estimasi biaya dan jadwal pengerjaan.
+   - **Sistem secara atomik** akan:
+     - Mengubah status Maintenance menjadi `in_progress`.
+     - Menerbitkan record **SPK baru** yang terhubung ke pengajuan tersebut.
+     - Mencatat audit trail di `approval_logs`.
+4. **Penyelesaian:** Setelah pekerjaan selesai, Admin/Teknisi mengubah status menjadi `done`.
+
+### C. Alur Keamanan & Audit Trail
+- **Middleware JWT:** Setiap request divalidasi integritas tokennya. Jika user dinonaktifkan oleh Super Admin, akses akan langsung diputus (`403 Forbidden`).
+- **Audit Trail (RecordApprovalLog):** Setiap perpindahan status (misal: `pending_kasi` -> `pending_pust`) dicatat secara otomatis dalam tabel `approval_logs` beserta catatan (*note*) dan aktor yang melakukannya.
 
 ---
 
-## 3. Struktur API (v1)
+## 3. Struktur Peran & Izin (RBAC)
 
-Semua endpoint API saat ini berada di bawah prefix `/api/v1/`.
-
-| Kategori | Deskripsi |
+| Role | Tanggung Jawab Utama |
 | :--- | :--- |
-| **Auth** | Login, Logout, Refresh Token (Rate Limited). |
-| **Profile** | Manajemen profile mandiri oleh user yang sedang login. |
-| **Admin/Users** | Manajemen akun user (Create, Read, Update, Delete, Block) oleh Super Admin. |
-| **Roles** | Manajemen peran/role sistem. |
+| **Super Admin** | Manajemen User, Role, dan Reset Password sistem secara keseluruhan. |
+| **Admin** | Operasional harian: Input Item, Pengajuan Maintenance, Update Profil. |
+| **Kasi** | Verifikator Level 1: Review Item baru dan Review pengajuan Maintenance awal. |
+| **Kel_Pust** | Final Approver: Aktivasi Item dan Penentu Anggaran/Jadwal SPK Maintenance. |
 
 ---
 
-## 4. Status Perbaikan (Changelog Audit)
+## 4. Standar Kode & Struktur API
 
-| Fitur | Status | Deskripsi |
-| :--- | :--- | :--- |
-| **Response Trait** | ✅ DONE | Implementasi `ApiResponse` untuk format JSON seragam. |
-| **Logic is_active** | ✅ DONE | Default `true` saat create admin, cek status saat login. |
-| **UUID Consistency**| ✅ DONE | Semua publik endpoint menggunakan UUID. |
-| **Resource Mapping**| ✅ DONE | Penggunaan `UserResource` dan `RoleResource` di semua rute. |
-| **Service Cleanup** | ✅ DONE | Pesan exception disesuaikan dengan konteks aksi. |
+- **RESTful API:** Menggunakan metode HTTP yang tepat (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+- **Resource Mapping:** Semua response dibungkus menggunakan `Eloquent Resources` untuk menyembunyikan detail database.
+- **Atomic Transaction:** Pembuatan Maintenance dan SPK dibungkus dalam `DB::beginTransaction` untuk mencegah data korup jika terjadi error di tengah proses.
 
 ---
-
-## 5. Panduan Pengembangan (Next Steps)
-1. **API Docs:** Akses dokumentasi otomatis melalui `/docs` (via Scramble).
-2. **Maintenance Module:** Lanjutkan implementasi untuk modul `Asset` dan `AssetCategory`.
-3. **Logging:** Pastikan `Log::error` selalu digunakan dalam blok catch untuk debugging produksi.
-
----
-*Dokumen ini diperbarui secara otomatis berdasarkan kondisi codebase terakhir (Mei 2026).*
+*Terakhir diperbarui: Juni 2026*

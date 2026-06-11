@@ -23,7 +23,7 @@ class ItemUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'category'    => 'nullable|string|exists:item_categories,name',
+            'category_uuid' => 'nullable|uuid|exists:item_categories,uuid',
             'name'        => 'nullable|string',
             'type'        => 'nullable|string|in:logistic,non-logistic,service',
             'units'       => 'nullable|integer',

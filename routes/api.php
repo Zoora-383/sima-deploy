@@ -6,6 +6,7 @@ use App\Http\Controllers\api\ProfileController;
 use App\Http\Controllers\api\RoleController;
 use App\Http\Controllers\api\ItemController;
 use App\Http\Controllers\api\MaintenanceController;
+use App\Http\Controllers\api\SpkController;
 use App\Http\Controllers\api\UserController;
 use App\Http\Middleware\JwtCheckMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -22,59 +23,61 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::middleware(JwtCheckMiddleware::class)->group(function () {
-        // KHUSUS USER YANG LOGIN (AKUNNYA MEREKA SENDIRI)
-        Route::patch('/profile', [ProfileController::class, 'store']);
+        // --- PROFILE & ACCOUNT ---
         Route::get('/profile', [ProfileController::class, 'show']);
+        Route::patch('/profile', [ProfileController::class, 'store']);
         Route::delete('/profile', [ProfileController::class, 'destroy']);
         Route::put('/profile/reset-password', [ProfileController::class, 'updateMyPassword']);
 
-        // KHUSUS SUPER ADMIN ROUTES
+        // --- USERS (SUPER ADMIN) ---
         Route::middleware('role:super-admin')->group(function () {
-            // RESET Password By SUPER ADMIN
-            Route::post('/reset-password/{uuid}', [AuthController::class, 'resetPassword']);
-
-            // CRUD Users
-            Route::post('/admin/users', [UserController::class, 'store']);
-            Route::get('/admin/users', [UserController::class, 'index']);
-            Route::get('/admin/users/{uuid}', [UserController::class, 'show']);
-            Route::delete('/admin/users/{uuid}', [UserController::class, 'destroy']);
-            Route::patch('/admin/users/{uuid}', [UserController::class, 'update']);
+            Route::apiResource('admin/users', UserController::class)->parameters(['users' => 'uuid']);
             Route::patch('/admin/users/{uuid}/status', [UserController::class, 'updateStatus']);
-
-            // CRUD Roles
-            Route::post('/roles', [RoleController::class, 'store']);
-            Route::get('/roles', [RoleController::class, 'index']);
-            Route::delete('/roles/{uuid}', [RoleController::class, 'destroy']);
-            Route::put('/roles/{uuid}', [RoleController::class, 'update']);
+            Route::post('/reset-password/{uuid}', [AuthController::class, 'resetPassword']);
         });
 
+        // --- ROLES (SUPER ADMIN) ---
+        Route::middleware('role:super-admin')->group(function () {
+            Route::apiResource('roles', RoleController::class)->parameters(['roles' => 'uuid'])->except(['show']);
+        });
+
+        // --- ITEM CATEGORIES ---
+        Route::get('/item-category', [ItemCategoryController::class, 'index']);
         Route::middleware('role:admin')->group(function () {
-            // CRUD Items Category
             Route::post('/item-category', [ItemCategoryController::class, 'store']);
-            Route::delete('/item-category/{uuid}', [ItemCategoryController::class, 'destroy']);
             Route::put('/item-category/{uuid}', [ItemCategoryController::class, 'update']);
-
-            // CRUD Items (write only)
-            Route::post('/items', [ItemController::class, 'store']);
-            Route::delete('/items/{uuid}', [ItemController::class, 'destroy']);
-            Route::put('/items/{uuid}', [ItemController::class, 'update']);
-            Route::patch('/items/{uuid}/status', [ItemController::class, 'updateStatus']);
-
-            // CRUD Maintenance (write only)
-            Route::post('/maintenance', [MaintenanceController::class, 'store']);
-            Route::delete('/maintenance/{uuid}', [MaintenanceController::class, 'destroy']);
-            Route::put('/maintenance/{uuid}', [MaintenanceController::class, 'update']);
-            Route::patch('/maintenance/{uuid}/status', [MaintenanceController::class, 'updateStatus']);
+            Route::delete('/item-category/{uuid}', [ItemCategoryController::class, 'destroy']);
         });
 
-        Route::middleware('role:admin,super-admin,kasi,kel_pust')->group(function () {
-            Route::get('/item-category', [ItemCategoryController::class, 'index']);
+        // --- ITEMS ---
+        Route::get('/items', [ItemController::class, 'index']);
+        Route::get('/items/{uuid}', [ItemController::class, 'show']);
+        Route::middleware('role:admin')->group(function () {
+            Route::post('/items', [ItemController::class, 'store']);
+            Route::put('/items/{uuid}', [ItemController::class, 'update']);
+            Route::delete('/items/{uuid}', [ItemController::class, 'destroy']);
+        });
+        // Item Approval Workflow
+        Route::middleware('role:admin,kasi,kel_pust')->patch('/items/{uuid}/status', [ItemController::class, 'updateStatus']);
 
-            Route::get('/items', [ItemController::class, 'index']);
-            Route::get('/items/{uuid}', [ItemController::class, 'show']);
+        // --- MAINTENANCE REQUESTS ---
+        Route::get('/maintenance', [MaintenanceController::class, 'index']);
+        Route::get('/maintenance/{uuid}', [MaintenanceController::class, 'show']);
+        Route::middleware('role:admin')->group(function () {
+            Route::post('/maintenance', [MaintenanceController::class, 'store']);
+            Route::put('/maintenance/{uuid}', [MaintenanceController::class, 'update']);
+            Route::delete('/maintenance/{uuid}', [MaintenanceController::class, 'destroy']);
+        });
+        // Maintenance Approval Workflow
+        Route::middleware('role:admin,kasi,kel_pust')->patch('/maintenance/{uuid}/status', [MaintenanceController::class, 'updateStatus']);
 
-            Route::get('/maintenance', [MaintenanceController::class, 'index']);
-            Route::get('/maintenance/{uuid}', [MaintenanceController::class, 'show']);
+        // --- SPK (SURAT PERINTAH KERJA) ---
+        Route::get('/spk', [SpkController::class, 'index']);
+        Route::get('/spk/{uuid}', [SpkController::class, 'show']);
+        Route::middleware('role:admin,kel_pust')->group(function () {
+            Route::post('/spk', [SpkController::class, 'store']);
+            Route::patch('/spk/{uuid}', [SpkController::class, 'update']);
+            Route::delete('/spk/{uuid}', [SpkController::class, 'destroy']);
         });
     });
 });

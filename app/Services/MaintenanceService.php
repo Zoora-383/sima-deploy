@@ -6,6 +6,7 @@ use App\Models\ApprovalLog;
 use App\Models\Item;
 use App\Models\MaintenanceRequest;
 use App\Models\User;
+use App\Traits\RecordApprovalLog;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,15 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class MaintenanceService
 {
+    use RecordApprovalLog;
+
+    protected $spkService;
+
+    public function __construct(SPKService $spkService)
+    {
+        $this->spkService = $spkService;
+    }
+
     /**
      * Method untuk generate nomor pengajuan urut otomatis: MNT-YYYY-XXXX
      */
@@ -34,22 +44,6 @@ class MaintenanceService
         }
 
         return $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Record a log entry for any approvable model (polymorphic).
-     */
-    private function recordLog(Model $approvable, string $statusFrom, string $statusTo, ?string $note, int $userId): void
-    {
-        ApprovalLog::create([
-            'uuid'          => Str::uuid()->toString(),
-            'approvable_id'   => $approvable->id,
-            'approvable_type' => get_class($approvable),
-            'user_id'       => $userId,
-            'status_from'   => $statusFrom,
-            'status_to'     => $statusTo,
-            'note'          => $note,
-        ]);
     }
 
     public function addMaintenance(array $data, User $currentUser)
@@ -225,6 +219,19 @@ class MaintenanceService
             $maintenance->update(['status' => $statusTo]);
             $logNote = $data['note'] ?? "Status diubah dari " . str_replace('_', ' ', $statusFrom) . " menjadi " . str_replace('_', ' ', $statusTo);
             $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
+
+            // Jika status berubah menjadi in_progress (Approval Final oleh Kel Pust), buat SPK otomatis
+            if ($statusTo === 'in_progress') {
+                $spkData = [
+                    'maintenance_id'          => $maintenance->id,
+                    'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif'],
+                    'tanggal_selesai_target'  => $data['tanggal_selesai_target'],
+                    'pagu_anggaran_disetujui' => $data['pagu_anggaran_disetujui'],
+                    'note'                    => "SPK diterbitkan otomatis setelah persetujuan Kepala Pustakawan.",
+                ];
+
+                $this->spkService->addSPK($spkData, $currentUser);
+            }
 
             DB::commit();
 
