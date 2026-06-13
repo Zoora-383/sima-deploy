@@ -9,6 +9,7 @@ use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
+use App\Models\UserSession;
 
 class JwtCheckMiddleware
 {
@@ -21,6 +22,17 @@ class JwtCheckMiddleware
                 return response()->json([
                     'status'  => 'error',
                     'message' => 'User not found.'
+                ], 401);
+            }
+
+            // --- CEK SESSI DI DATABASE ---
+            $jti = JWTAuth::getPayload()->get('jti');
+            $sessionExists = UserSession::where('jti', $jti)->exists();
+
+            if (!$sessionExists) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Session has been terminated because you logged in from another device or reached session limit. Please login again.'
                 ], 401);
             }
 

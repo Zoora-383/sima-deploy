@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tymon\JWTAuth\Exceptions\JWTException;
-use Tymon\JWTAuth\Contracts\Guard\JWTAuth;
+use Tymon\JWTAuth\Facades\JWTAuth;
+use App\Models\UserSession;
 
 class AuthService
 {
@@ -34,6 +35,26 @@ class AuthService
             throw new AuthenticationException('Your account has been blocked. Please contact the administrator.');
         }
 
+        // --- SESSION MANAGEMENT ---
+        $payload = JWTAuth::setToken($token)->getPayload();
+        $jti = $payload->get('jti');
+
+        $activeSessions = UserSession::where('user_id', $user->id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($activeSessions->count() >= 3) {
+            // Hapus sesi tertua jika sudah mencapai limit
+            $activeSessions->first()->delete();
+        }
+
+        UserSession::create([
+            'user_id'       => $user->id,
+            'jti'           => $jti,
+            'device_info'   => request()->header('User-Agent'),
+            'last_activity' => now(),
+        ]);
+
         return [
             'accessToken'           => $token,
             'force_password_change' => (bool) $user->force_password_change,
@@ -48,6 +69,11 @@ class AuthService
     public function logout($guard)
     {
         try {
+            $token = $guard->getToken();
+            if ($token) {
+                $jti = JWTAuth::setToken($token)->getPayload()->get('jti');
+                UserSession::where('jti', $jti)->delete();
+            }
             $guard->logout();
         } catch (JWTException $e) {
             throw $e;
@@ -126,6 +152,18 @@ class AuthService
      */
     public function refresh($guard)
     {
-        return $guard->refresh();
+        $oldToken = $guard->getToken();
+        $oldJti = JWTAuth::setToken($oldToken)->getPayload()->get('jti');
+
+        $newToken = $guard->refresh();
+        $newJti = JWTAuth::setToken($newToken)->getPayload()->get('jti');
+
+        // Update JTI di database agar sesi tetap valid setelah refresh
+        UserSession::where('jti', $oldJti)->update([
+            'jti'           => $newJti,
+            'last_activity' => now()
+        ]);
+
+        return $newToken;
     }
 }
