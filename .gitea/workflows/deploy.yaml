@@ -33,12 +33,13 @@ jobs:
       - name: Build and Push Image
         run: |
           SHA=${{ gitea.sha }}
-        
+
+          DOCKER_BUILDKIT=0 docker build \
             -f docker/php/Dockerfile \
             -t $REG/sima-app:$SHA \
             -t $REG/sima-app:latest \
             .
-            
+
           docker push $REG/sima-app:$SHA
           docker push $REG/sima-app:latest
 
