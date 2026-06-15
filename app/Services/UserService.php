@@ -246,7 +246,7 @@ class UserService
             $profile = $currentUser->userProfile()->updateOrCreate(
                 ['user_id' => $currentUser->id],
                 [
-                    'uuid'       => $existingProfile->uuid ?? Str::uuid()->toString(),
+                    'uuid'       => $existingProfile?->uuid ?? Str::uuid()->toString(),
                     'fullname'   => $data['fullname']     ?? $existingProfile?->fullname,
                     'phone'      => $data['phone']        ?? $existingProfile?->phone,
                     'email'      => $data['email']        ?? $existingProfile?->email,

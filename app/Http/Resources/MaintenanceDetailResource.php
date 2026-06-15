@@ -27,6 +27,7 @@ class MaintenanceDetailResource extends JsonResource
             'target_completion_expectations' => $this->target_completion_expectations,
             'total_estimated_cost'           => $this->total_estimated_cost,
             'status'          => $this->status,
+            'items'           => MaintenanceItemResource::collection($this->whenLoaded('maintenanceItems')),
             'approval_logs'   => ApprovalLogResource::collection($this->whenLoaded('approvalLogs')),
             'created_at'      => $this->created_at,
             'updated_at'      => $this->updated_at,

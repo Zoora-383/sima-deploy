@@ -16,6 +16,10 @@ class MaintenanceRequest extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function maintenanceItems() {
+        return $this->hasMany(MaintenanceItem::class);
+    }
+
     public function approvalLogs()
     {
         return $this->morphMany(ApprovalLog::class, 'approvable');

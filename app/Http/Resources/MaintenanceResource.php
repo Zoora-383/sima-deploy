@@ -20,6 +20,7 @@ class MaintenanceResource extends JsonResource
             'category'   => $this->item->category->name ?? 'Tanpa kategori',
             'priority' => $this->priority,
             'status' => $this->status,
+            'items'  => MaintenanceItemResource::collection($this->whenLoaded('maintenanceItems')),
             'created_at' => $this->created_at
         ];
     }

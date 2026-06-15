@@ -14,11 +14,12 @@ return new class extends Migration
         Schema::create('maintenance_request_items', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('request_id')->constrained('users', 'id')->cascadeOnDelete();
+            $table->foreignId('maintenance_id')->constrained('maintenance_requests', 'id')->cascadeOnDelete();
             $table->string('nama_item');
-            $table->integer('qty');
-            $table->string('satuan');
-            $table->decimal('estimasi_biaya_satuan', 10, 2);
+            $table->string('image_item')->nullable();
+            $table->integer('qty')->nullable();
+            $table->string('satuan')->nullable();
+            $table->decimal('estimasi_biaya_satuan', 10, 2)->nullable();
             $table->timestamps();
         });
     }

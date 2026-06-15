@@ -4,7 +4,7 @@ namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\ChangeMyPasswordRequest;
-use App\Http\Requests\User\ProfileStoreRequest;
+use App\Http\Requests\User\ProfileUpdateRequest;
 use App\Http\Resources\UserDetailResource;
 use App\Http\Resources\UserProfileResource;
 use App\Models\User;
@@ -23,12 +23,7 @@ class ProfileController extends Controller
         $this->userService = $userService;
     }
 
-    /**
-     * @param ProfileStoreRequest $request
-     * @requestMediaType multipart/form-data
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function store(ProfileStoreRequest $request)
+    public function store(ProfileUpdateRequest $request)
     {
         try {
             $currentUser = auth('api')->user();
