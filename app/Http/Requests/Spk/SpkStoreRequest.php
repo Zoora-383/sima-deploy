@@ -17,12 +17,12 @@ class SpkStoreRequest extends FormRequest
 
     /**
      * Summary of rules
-     * @return array{maintenance_id: string, note: string, pagu_anggaran_disetujui: string, tanggal_mulai_efektif: string, tanggal_selesai_target: string}
+     * @return array{maintenance_uuid: string, tanggal_mulai_efektif: string, tanggal_selesai_target: string, pagu_anggaran_disetujui: float|null, note: string|null}
      */
     public function rules(): array
     {
         return [
-            'maintenance_id'          => 'required|integer|exists:maintenances,id',
+            'maintenance_uuid'        => 'required|uuid|exists:maintenance_requests,uuid',
             'tanggal_mulai_efektif'   => 'required|date',
             'tanggal_selesai_target'  => 'required|date|date_format:Y-m-d|after_or_equal:tanggal_mulai_efektif',
             'pagu_anggaran_disetujui' => 'nullable|numeric|min:0',
@@ -33,8 +33,8 @@ class SpkStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'maintenance_id.required'         => 'Data perbaikan (maintenance) asal wajib dipilih.',
-            'maintenance_id.exists'           => 'Data perbaikan tidak valid atau tidak ditemukan di sistem.',
+            'maintenance_uuid.required'         => 'Data perbaikan (maintenance) asal wajib dipilih.',
+            'maintenance_uuid.exists'           => 'Data perbaikan tidak valid atau tidak ditemukan di sistem.',
             'tanggal_mulai_efektif.required'  => 'Tanggal mulai efektif wajib diisi.',
             'tanggal_selesai_target.required' => 'Tanggal selesai target wajib diisi.',
             'tanggal_selesai_target.after_or_equal' => 'Tanggal selesai target tidak boleh mendahului tanggal mulai efektif.',

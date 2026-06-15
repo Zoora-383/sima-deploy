@@ -18,7 +18,7 @@ class ItemUpdateRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array{category_uuid: ?string, name: ?string, type: "logistic"|"non-logistic"|"service"|null, units: ?int, image_item: ?string, location: ?string, description: ?string}
      */
     public function rules(): array
     {

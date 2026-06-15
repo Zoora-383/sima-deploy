@@ -17,7 +17,7 @@ class SpkUpdateRequest extends FormRequest
 
     /**
      * Summary of rules
-     * @return array{pagu_anggaran_disetujui: string, tanggal_mulai_efektif: string, tanggal_selesai_target: string}
+     * @return array{pagu_anggaran_disetujui: float|null, tanggal_mulai_efektif: string|null, tanggal_selesai_target: string|null}
      */
     public function rules(): array
     {

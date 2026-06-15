@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MaintenanceRequest;
 use App\Models\SPK;
 use App\Models\User;
 use App\Traits\RecordApprovalLog;
@@ -9,6 +10,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class SPKService
@@ -35,14 +37,41 @@ class SPKService
         return "{$prefix}-{$tahunCurrent}-{$sequence}";
     }
 
-    public function addSPK(array $data, User $currentUser)
+    /**
+     * Summary of addSPK
+     * @param array $data
+     * @param User $currentUser
+     * @param mixed $maintenanceUuid
+     * @throws InvalidArgumentException
+     * @throws NotFoundHttpException
+     * @throws Exception
+     * @return SPK
+     */
+    public function addSPK(array $data, User $currentUser, ?string $maintenanceUuid = null)
     {
+        $uuid = $maintenanceUuid ?? $data['maintenance_uuid'] ?? null;
+
+        if (!$uuid) {
+            throw new InvalidArgumentException('UUID Maintenance wajib disertakan untuk membuat SPK.');
+        }
+
+        $maintenance = MaintenanceRequest::where('uuid', $uuid)->first();
+
+        if (!$maintenance) {
+            throw new NotFoundHttpException('Maintenance tidak ditemukan untuk pembuatan SPK.');
+        }
+
+        $allowedStatuses = ['pending_pust', 'in_progress'];
+        if (!in_array($maintenance->status, $allowedStatuses)) {
+            throw new InvalidArgumentException("SPK hanya dapat dibuat untuk pengajuan maintenance yang telah disetujui Kepala PUSTIKOM (Status saat ini: " . str_replace('_', ' ', $maintenance->status) . ").");
+        }
+
         try {
             DB::beginTransaction();
 
             $newSpk = SPK::create([
                 'uuid'                    => Str::uuid()->toString(),
-                'maintenance_id'          => $data['maintenance_id'],
+                'maintenance_id'          => $maintenance->id,
                 'nomor_spk'               => $this->generateNomorSpk(),
                 'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif'],
                 'tanggal_selesai_target'  => $data['tanggal_selesai_target'],

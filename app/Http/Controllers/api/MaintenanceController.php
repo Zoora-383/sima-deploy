@@ -46,6 +46,8 @@ class MaintenanceController extends Controller
                 'Created maintenance successfully',
                 201
             );
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Maintenance Store Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to create maintenance request.', 500);

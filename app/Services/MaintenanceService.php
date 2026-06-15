@@ -471,7 +471,7 @@ class MaintenanceService
                     'note'                    => "SPK diterbitkan otomatis setelah persetujuan Kepala Pustakawan.",
                 ];
 
-                $this->spkService->addSPK($spkData, $currentUser);
+                $this->spkService->addSPK($spkData, $currentUser, $maintenance->uuid);
             }
 
             DB::commit();

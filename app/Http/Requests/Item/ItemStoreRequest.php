@@ -18,7 +18,7 @@ class ItemStoreRequest extends FormRequest
 
     /**
      * Summary of rules
-     * @return array{category: string, description: string, image_item: string, location: string, name: string, type: string, unit: string}
+     * @return array{category_uuid: string, description: string|null, image_item: string|null, location: string|null, name: string, type: string, units: int|null}
      */
     public function rules(): array
     {

@@ -10,7 +10,7 @@ class SPKResource extends JsonResource
     /**
      * Summary of toArray
      * @param Request $request
-     * @return array{created_at: mixed, disetujui_oleh: array{email: mixed, note: mixed, status: mixed, tanggal_setuju: mixed, username: mixed|null, maintenance: mixed|\Illuminate\Http\Resources\MissingValue, nomor_spk: mixed, pagu_anggaran_disetujui: float, tanggal_mulai_efektif: mixed, tanggal_selesai_target: mixed, uuid: mixed}}
+     * @return array{uuid: mixed, nomor_spk: mixed, tanggal_mulai_efektif: mixed, tanggal_selesai_target: mixed, pagu_anggaran_disetujui: float, created_at: mixed, maintenance: mixed|\Illuminate\Http\Resources\MissingValue, disetujui_oleh: array{username: mixed, email: mixed, status: mixed, note: mixed, tanggal_setuju: mixed}|null}
      */
     public function toArray(Request $request): array
     {

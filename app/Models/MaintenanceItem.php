@@ -20,6 +20,6 @@ class MaintenanceItem extends Model
     }
 
     public function maintenanceRequest() {
-        return $this->belongsTo(MaintenanceRequest::class);
+        return $this->belongsTo(MaintenanceRequest::class, 'maintenance_id');
     }
 }

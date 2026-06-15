@@ -17,7 +17,7 @@ class MaintenanceRequest extends Model
     }
 
     public function maintenanceItems() {
-        return $this->hasMany(MaintenanceItem::class);
+        return $this->hasMany(MaintenanceItem::class, 'maintenance_id');
     }
 
     public function approvalLogs()

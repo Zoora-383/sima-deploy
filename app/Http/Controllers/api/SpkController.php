@@ -35,11 +35,15 @@ class SpkController extends Controller
                 'SPK berhasil dibuat dan otomatis disetujui.',
                 201
             );
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
-            Log::error('Role Store Error: ' . $e->getMessage());
-            return $this->errorResponse('Failed to create roles.');
+            Log::error('SPK Store Error: ' . $e->getMessage());
+            return $this->errorResponse('Gagal membuat SPK: ' . $e->getMessage(), 500);
         }
     }
 

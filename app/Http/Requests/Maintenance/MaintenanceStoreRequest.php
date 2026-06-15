@@ -14,7 +14,7 @@ class MaintenanceStoreRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, mixed>
+     * @return array{item_id: string, title: string, priority: "high"|"medium"|"low", type: "korektif"|"preventif", description: ?string, estimated_day: ?int, target_completion_expectations: ?string, total_estimated_cost: ?float, items: ?array}
      */
     public function rules(): array
     {
