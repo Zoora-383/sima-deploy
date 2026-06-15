@@ -33,12 +33,12 @@ jobs:
       - name: Build and Push Image
         run: |
           SHA=${{ gitea.sha }}
-          docker pull $REG/sima-app:latest 2>/dev/null || true
+          # docker pull $REG/sima-app:latest 2>/dev/null || true
           
           # Mematikan BuildKit (DOCKER_BUILDKIT=0) agar menggunakan engine bawaan runner langsung tanpa buildx plugin
           DOCKER_BUILDKIT=0 docker build \
             -f docker/php/Dockerfile \
-            --cache-from $REG/sima-app:latest \
+            # --cache-from $REG/sima-app:latest \
             -t $REG/sima-app:$SHA \
             -t $REG/sima-app:latest \
             .
