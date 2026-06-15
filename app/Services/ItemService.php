@@ -176,7 +176,6 @@ class ItemService
             $item = Item::create([
                 'uuid'        => Str::uuid()->toString(),
                 'user_id'     => $currentUser->id,
-                'approved_by' => null,
                 'category_id' => $category->id,
                 'code_item'   => $this->generateCodeItem($data['type'], $category),
                 'name'        => $data['name'],

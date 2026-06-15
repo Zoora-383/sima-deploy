@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['uuid', 'user_id', 'approved_by', 'category_id', 'code_item', 'name', 'type', 'units', 'image_item', 'location', 'description'])]
+#[Fillable(['uuid', 'user_id', 'category_id', 'code_item', 'name', 'type', 'units', 'image_item', 'location', 'description', 'status'])]
 class Item extends Model
 {
     public function category()
@@ -16,11 +16,6 @@ class Item extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
-    }
-
-    public function approvedBy()
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function approvalLogs()
