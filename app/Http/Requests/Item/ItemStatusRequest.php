@@ -17,13 +17,22 @@ class ItemStatusRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array{status: "pending_kasi"|"pending_pust"|"active"|"rejected", note: ?string}
      */
     public function rules(): array
     {
         return [
-            'status' => 'required|in:draft,pending,revision,active,maintenance,disposed',
-            'note' => 'required_if:status,revision|string|max:255',
+            'status' => 'required|in:pending_kasi,pending_pust,active,rejected',
+            'note'   => 'required_if:status,rejected|nullable|string|max:500',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'status.required'      => 'Status wajib dipilih.',
+            'status.in'            => 'Status tidak valid.',
+            'note.required_if'     => 'Catatan/Alasan wajib diisi jika menolak atau meminta revisi.',
         ];
     }
 }

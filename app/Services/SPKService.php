@@ -88,7 +88,7 @@ class SPKService
 
             DB::commit();
 
-            return $newSpk->load('approvalLogs');
+            return $newSpk->load('approvalLogs.user');
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Gagal membuat SPK dari Maintenance: " . $e->getMessage());

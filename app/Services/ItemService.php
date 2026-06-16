@@ -222,8 +222,6 @@ class ItemService
             $item = Item::with([
                 'user:id,username',
                 'user.userProfile:user_id,fullname',
-                'approvedBy:id,username',
-                'approvedBy.userProfile:user_id,fullname',
                 'category:id,name',
                 'approvalLogs.user.userProfile'
             ])->where('uuid', $itemUuid)->first();
@@ -355,12 +353,18 @@ class ItemService
         $statusFrom = $item->status;
         $statusTo   = $data['status'];
 
+        // Map 'rejected' from request to 'revision' in database if necessary
+        if ($statusTo === 'rejected') {
+            $statusTo = 'revision';
+        }
+
         $roleTransitions = [
             'admin'    => [
                 'draft'    => ['pending_kasi'],
                 'revision' => ['pending_kasi'],
             ],
             'kasi'     => [
+                'draft'        => ['pending_pust'], // Kasi approves draft directly to next stage
                 'pending_kasi' => ['pending_pust', 'revision'],
             ],
             'kel_pust' => [
@@ -368,7 +372,7 @@ class ItemService
             ],
         ];
 
-        $allowed = $roleTransitions[$currentUser->role][$statusFrom] ?? [];
+        $allowed = $roleTransitions[$currentUser->role->name][$statusFrom] ?? [];
 
         if (!in_array($statusTo, $allowed)) {
             throw new \InvalidArgumentException(
@@ -389,7 +393,14 @@ class ItemService
             $this->recordLog($item, $statusFrom, $statusTo, $data['note'] ?? null, $currentUser->id);
 
             DB::commit();
-            return $item->fresh();
+            return $item->fresh(['approvalLogs.user', 'category', 'user.userProfile']);
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw new Exception("Failed to update item status: " . $e->getMessage());
+        }
+    }
+}
+resh(['approvalLogs.user', 'category', 'user.userProfile']);
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Failed to update item status: " . $e->getMessage());

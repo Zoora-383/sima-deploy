@@ -194,7 +194,7 @@ class MaintenanceService
 
             DB::commit();
 
-            return $newMaintenance->load('maintenanceItems');
+            return $newMaintenance->load(['maintenanceItems', 'approvalLogs.user']);
         } catch (Exception $e) {
             DB::rollBack();
 
@@ -439,11 +439,16 @@ class MaintenanceService
                 'pending_kasi' => ['rejected'],
                 'pending_pust' => ['rejected'],
             ],
-            'kasi'     => ['pending_kasi' => ['pending_pust', 'rejected']],
-            'kel_pust' => ['pending_pust' => ['in_progress',  'rejected']],
+            'kasi'     => [
+                'draft'        => ['pending_pust'], // Kasi approves draft directly to next stage
+                'pending_kasi' => ['pending_pust', 'rejected']
+            ],
+            'kel_pust' => [
+                'pending_pust' => ['in_progress',  'rejected']
+            ],
         ];
 
-        $allowed = $roleTransitions[$currentUser->role][$statusFrom] ?? [];
+        $allowed = $roleTransitions[$currentUser->role->name][$statusFrom] ?? [];
 
         if (!in_array($statusTo, $allowed)) {
             throw new \InvalidArgumentException(
@@ -476,7 +481,7 @@ class MaintenanceService
 
             DB::commit();
 
-            return $maintenance->fresh();
+            return $maintenance->fresh(['approvalLogs.user']);
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Gagal mengubah status maintenance: " . $e->getMessage());

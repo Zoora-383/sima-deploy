@@ -10,7 +10,7 @@ class SPKResource extends JsonResource
     /**
      * Summary of toArray
      * @param Request $request
-     * @return array{uuid: mixed, nomor_spk: mixed, tanggal_mulai_efektif: mixed, tanggal_selesai_target: mixed, pagu_anggaran_disetujui: float, created_at: mixed, maintenance: mixed|\Illuminate\Http\Resources\MissingValue, disetujui_oleh: array{username: mixed, email: mixed, status: mixed, note: mixed, tanggal_setuju: mixed}|null}
+     * @return array{uuid: mixed, nomor_spk: mixed, tanggal_mulai_efektif: mixed, tanggal_selesai_target: mixed, pagu_anggaran_disetujui: float, created_at: mixed, maintenance: mixed|\Illuminate\Http\Resources\MissingValue, disetujui_oleh: array{username: mixed, email: mixed, status: mixed, note: mixed, tanggal_setuju: mixed}|null, approval_logs: mixed}
      */
     public function toArray(Request $request): array
     {
@@ -37,6 +37,8 @@ class SPKResource extends JsonResource
                 'note'     => $latestApproval->note,
                 'tanggal_setuju' => $latestApproval->created_at,
             ] : null,
+
+            'approval_logs' => ApprovalLogResource::collection($this->whenLoaded('approvalLogs')),
         ];
     }
 }
