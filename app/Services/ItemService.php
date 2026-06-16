@@ -400,10 +400,3 @@ class ItemService
         }
     }
 }
-resh(['approvalLogs.user', 'category', 'user.userProfile']);
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw new Exception("Failed to update item status: " . $e->getMessage());
-        }
-    }
-}
