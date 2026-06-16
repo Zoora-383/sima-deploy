@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Item\ItemStatusRequest;
 use App\Http\Requests\Item\ItemStoreRequest;
 use App\Http\Requests\Item\ItemUpdateRequest;
 use App\Http\Resources\ItemDetailResource;
 use App\Http\Resources\ItemResource;
-use App\Models\Item;
 use App\Services\ItemService;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -30,7 +30,7 @@ class ItemController extends Controller
             $currentUser = auth('api')->user();
             $file = $request->file('image_item');
             $item = $this->itemService->createItem($request->validated(), $file, $currentUser);
-            
+
             return $this->successResponse(
                 ['item' => new ItemResource($item)],
                 'Item created successfully',
@@ -50,7 +50,7 @@ class ItemController extends Controller
             $items = $this->itemService->getAllItem();
 
             return $this->successResponse(
-                ['items' => ItemResource::collection($items)], 
+                ['items' => ItemResource::collection($items)],
                 'Get all items successfully'
             );
         } catch (AccessDeniedHttpException $e) {
@@ -67,7 +67,7 @@ class ItemController extends Controller
             $item = $this->itemService->getDetailItem($uuid);
 
             return $this->successResponse(
-                ['item' => new ItemDetailResource($item)], 
+                ['item' => new ItemDetailResource($item)],
                 'Get detail item successfully'
             );
         } catch (AccessDeniedHttpException $e) {
@@ -99,7 +99,7 @@ class ItemController extends Controller
             $item = $this->itemService->updateItem($uuid, $request->validated(), $file);
 
             return $this->successResponse(
-                ['item' => new ItemResource($item)], 
+                ['item' => new ItemResource($item)],
                 'Updated item successfully'
             );
         } catch (AccessDeniedHttpException $e) {
@@ -117,7 +117,7 @@ class ItemController extends Controller
             $item = $this->itemService->updateStatus($uuid, $request->validated(), $currentUser);
 
             return $this->successResponse(
-                ['item' => new ItemDetailResource($item)], 
+                ['item' => new ItemDetailResource($item)],
                 'Updated item status successfully'
             );
         } catch (AccessDeniedHttpException $e) {

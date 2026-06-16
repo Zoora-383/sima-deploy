@@ -32,7 +32,7 @@ class ProfileController extends Controller
             $user = User::with(['role', 'userProfile'])->where('uuid', $currentUser->uuid)->first();
 
             return $this->successResponse(
-                ['profile' => new UserProfileResource($user)],
+                ['profile' => new UserDetailResource($user)],
                 'Profile updated successfully.',
                 200
             );
@@ -49,7 +49,7 @@ class ProfileController extends Controller
             $user = $this->userService->getMyProfile($userUuid);
 
             return $this->successResponse(
-                ['profile' => new UserDetailResource($user)],
+                ['user-profile' => new UserDetailResource($user)],
                 'Get profile successfully'
             );
         } catch (NotFoundHttpException $e) {
