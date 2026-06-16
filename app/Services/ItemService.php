@@ -203,7 +203,7 @@ class ItemService
     public function getAllItem(): \Illuminate\Database\Eloquent\Collection
     {
         try {
-            return Item::select('name', 'image_item', 'code_item', 'location', 'type', 'uuid')
+            return Item::select('name', 'image_item', 'code_item', 'location', 'type', 'uuid', 'units', 'status')
                 ->get();
         } catch (Exception $e) {
             throw new Exception("Failed to get items: " . $e->getMessage());

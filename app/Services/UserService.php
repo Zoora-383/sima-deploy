@@ -216,6 +216,16 @@ class UserService
         try {
             DB::beginTransaction();
 
+            // 1. Update User Account Data (Email/Username)
+            $userData = [];
+            if (isset($data['email']))    $userData['email'] = $data['email'];
+            if (isset($data['username'])) $userData['username'] = $data['username'];
+
+            if (!empty($userData)) {
+                $currentUser->update($userData);
+            }
+
+            // 2. Handle Avatar Upload
             $existingProfile = $currentUser->userProfile;
             $avatarPath = $existingProfile?->avatar_url;
 
@@ -243,14 +253,13 @@ class UserService
                 $avatarPath = Storage::disk('s3')->url($path);
             }
 
+            // 3. Update or Create Profile Detail
             $profile = $currentUser->userProfile()->updateOrCreate(
                 ['user_id' => $currentUser->id],
                 [
                     'uuid'       => $existingProfile?->uuid ?? Str::uuid()->toString(),
                     'fullname'   => $data['fullname']     ?? $existingProfile?->fullname,
                     'phone'      => $data['phone']        ?? $existingProfile?->phone,
-                    'email'      => $data['email']        ?? $existingProfile?->email,
-                    'username'   => $data['username']     ?? $existingProfile?->username,
                     'location'   => $data['location']     ?? $existingProfile?->location,
                     'avatar_url' => $avatarPath,
                 ]

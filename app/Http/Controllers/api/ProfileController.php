@@ -23,7 +23,7 @@ class ProfileController extends Controller
         $this->userService = $userService;
     }
 
-    public function store(ProfileUpdateRequest $request)
+    public function update(ProfileUpdateRequest $request)
     {
         try {
             $currentUser = auth('api')->user();
@@ -33,12 +33,12 @@ class ProfileController extends Controller
 
             return $this->successResponse(
                 ['profile' => new UserProfileResource($user)],
-                'Profile created successfully.',
-                201
+                'Profile updated successfully.',
+                200
             );
         } catch (Exception $e) {
-            Log::error('Profile Store Error: ' . $e->getMessage());
-            return $this->errorResponse('Failed to create profile.');
+            Log::error('Profile Update Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to update profile.');
         }
     }
 

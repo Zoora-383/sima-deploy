@@ -22,6 +22,7 @@ class ItemResource extends JsonResource
             'units'    => $this->units,
             'location' => $this->location,
             'type'     => $this->type,
+            'status'   => $this->status,
         ];
     }
 }

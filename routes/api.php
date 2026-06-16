@@ -25,7 +25,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(JwtCheckMiddleware::class)->group(function () {
         // --- PROFILE & ACCOUNT ---
         Route::get('/profile', [ProfileController::class, 'show']);
-        Route::patch('/profile', [ProfileController::class, 'store']);
+        Route::patch('/profile', [ProfileController::class, 'update']);
         Route::delete('/profile', [ProfileController::class, 'destroy']);
         Route::put('/profile/reset-password', [ProfileController::class, 'updateMyPassword']);
 
