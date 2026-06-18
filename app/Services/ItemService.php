@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
 use App\Traits\RecordApprovalLog;
+use App\Traits\SecureImageUpload;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ItemService
 {
-    use RecordApprovalLog;
+    use RecordApprovalLog, SecureImageUpload;
 
     // METHODS ITEMS CATEGORY
 
@@ -105,18 +106,12 @@ class ItemService
 
     private function uploadImage($file, string $folder): string
     {
-        $path = $file->store($folder, 's3');
-        return Storage::disk('s3')->url($path);
+        return $this->secureUpload($file, $folder);
     }
 
     private function deleteOldImage(?string $imageUrl): void
     {
-        if (!$imageUrl) return;
-
-        $baseUrl = Storage::disk('s3')->url('');
-        $path = str_replace($baseUrl, '', $imageUrl);
-
-        Storage::disk('s3')->delete($path);
+        $this->deleteFileFromS3($imageUrl);
     }
 
     /**
@@ -197,15 +192,20 @@ class ItemService
 
     /**
      * Get all items
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @param User $currentUser
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
      * @throws Exception
      */
-    public function getAllItem(): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    public function getAllItem(User $currentUser): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         try {
-            return Item::select('name', 'image_item', 'code_item', 'location', 'type', 'uuid', 'units', 'status')
-                ->latest()
-                ->paginate(10);
+            $query = Item::select('name', 'image_item', 'code_item', 'location', 'type', 'uuid', 'units', 'status');
+
+            if ($currentUser->role->name === 'admin') {
+                $query->where('user_id', $currentUser->id);
+            }
+
+            return $query->latest()->paginate(10);
         } catch (Exception $e) {
             throw new Exception("Failed to get items: " . $e->getMessage());
         }
@@ -214,10 +214,11 @@ class ItemService
     /**
      * Get detailed information of an item
      * @param string $itemUuid
+     * @param User $currentUser
      * @return Item
-     * @throws NotFoundHttpException|Exception
+     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
      */
-    public function getDetailItem(string $itemUuid): Item
+    public function getDetailItem(string $itemUuid, User $currentUser): Item
     {
         try {
             $item = Item::with([
@@ -231,8 +232,12 @@ class ItemService
                 throw new NotFoundHttpException('Item not found.');
             }
 
+            if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
+                throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to access this item.');
+            }
+
             return $item;
-        } catch (NotFoundHttpException $e) {
+        } catch (NotFoundHttpException | \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
             throw $e;
         } catch (Exception $e) {
             throw new Exception("Failed to get detail item: " . $e->getMessage());
@@ -244,15 +249,20 @@ class ItemService
      * @param string $itemUuid
      * @param array $data
      * @param mixed $file
+     * @param User $currentUser
      * @return Item
-     * @throws NotFoundHttpException|Exception
+     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
      */
-    public function updateItem(string $itemUuid, array $data, $file = null): Item
+    public function updateItem(string $itemUuid, array $data, $file = null, User $currentUser): Item
     {
         $item = Item::where('uuid', $itemUuid)->first();
 
         if (!$item) {
             throw new NotFoundHttpException('Item not found.');
+        }
+
+        if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update this item.');
         }
 
         if (in_array($item->status, ['active', 'maintenance'])) {
@@ -294,7 +304,7 @@ class ItemService
 
             DB::commit();
             return $item->fresh(['user:id,username', 'category:id,name']);
-        } catch (NotFoundHttpException $e) {
+        } catch (NotFoundHttpException | \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
             throw $e;
         } catch (Exception $e) {
             DB::rollBack();
@@ -305,15 +315,20 @@ class ItemService
     /**
      * Delete an item
      * @param string $itemUuid
+     * @param User $currentUser
      * @return string
-     * @throws NotFoundHttpException|Exception
+     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
      */
-    public function deleteItem(string $itemUuid): string
+    public function deleteItem(string $itemUuid, User $currentUser): string
     {
         $item = Item::where('uuid', $itemUuid)->first();
 
         if (!$item) {
             throw new NotFoundHttpException('Item not found.');
+        }
+
+        if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to delete this item.');
         }
 
         if ($item->status === 'maintenance') {
@@ -339,6 +354,7 @@ class ItemService
      * @param array $data
      * @param User $currentUser
      * @throws NotFoundHttpException
+     * @throws AccessDeniedHttpException
      * @throws \InvalidArgumentException
      * @throws Exception
      * @return Item|null
@@ -349,6 +365,10 @@ class ItemService
 
         if (!$item) {
             throw new NotFoundHttpException('Item not found.');
+        }
+
+        if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update the status of this item.');
         }
 
         $statusFrom = $item->status;

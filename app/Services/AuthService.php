@@ -24,8 +24,7 @@ class AuthService
     public function login(array $credentials, $guard): array
     {
         if (!$token = $guard->attempt($credentials)) {
-            $inputType = array_key_first($credentials);
-            throw new AuthenticationException(ucfirst($inputType) . ' or password incorrect');
+            throw new AuthenticationException('Invalid credentials');
         }
 
         $user = $guard->user();
@@ -44,7 +43,6 @@ class AuthService
             ->get();
 
         if ($activeSessions->count() >= 3) {
-            // Hapus sesi tertua jika sudah mencapai limit
             $activeSessions->first()->delete();
         }
 

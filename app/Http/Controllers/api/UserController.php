@@ -76,7 +76,8 @@ class UserController extends Controller
     public function destroy(string $uuid)
     {
         try {
-            $this->userService->deleteUser($uuid);
+            $currentUser = auth('api')->user();
+            $this->userService->deleteUser($uuid, $currentUser);
 
             return $this->successResponse(null, 'User deleted successfully');
         } catch (NotFoundHttpException $e) {
@@ -90,7 +91,8 @@ class UserController extends Controller
     public function update(UserUpdateRequest $request, string $uuid)
     {
         try {
-            $updateUser = $this->userService->updateUser($request->validated(), $uuid);
+            $currentUser = auth('api')->user();
+            $updateUser = $this->userService->updateUser($request->validated(), $uuid, $currentUser);
 
             return $this->successResponse(
                 ['user' => new UserResource($updateUser)],
@@ -107,10 +109,11 @@ class UserController extends Controller
     public function updateStatus(string $uuid)
     {
         try {
+            $currentUser = auth('api')->user();
             $user = $this->userService->getUserById($uuid);
             $newStatus = !$user->is_active;
 
-            $updatedUser = $this->userService->updateUserStatus($uuid, $newStatus);
+            $updatedUser = $this->userService->updateUserStatus($uuid, $newStatus, $currentUser);
 
             $message = $newStatus ? 'User activated successfully' : 'User blocked successfully';
 
@@ -120,6 +123,8 @@ class UserController extends Controller
             );
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
             Log::error('User Status Update Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to update user status.');

@@ -26,19 +26,22 @@ Setiap item/aset yang didaftarkan harus melalui proses validasi kualitas sebelum
 ### B. Alur Pemeliharaan & SPK (Maintenance & SPK Flow)
 Ini adalah alur paling kritis yang mengintegrasikan pengajuan perbaikan dengan penerbitan Surat Perintah Kerja (SPK):
 1. **Pengajuan:** Admin mengajukan request maintenance untuk item yang rusak (Status: `draft`).
-2. **Verifikasi Kasi:** Kasi memeriksa urgensi dan detail pengajuan (Status: `pending_pust`).
+2. **Verifikasi Kasi:** Kasi memeriksa urgensi dan detail pengajuan (Status: `pending_pust`) atau mengembalikan untuk perbaikan (Status: `rejected`).
 3. **Persetujuan & Penerbitan SPK Otomatis:**
    - **Kepala Pustakawan** melakukan review final.
-   - Saat menyetujui (`status: in_progress`), Kepala Pustakawan **wajib** menginput estimasi biaya dan jadwal pengerjaan.
-   - **Sistem secara atomik** akan:
+   - Saat menyetujui (`status: in_progress`), sistem **secara atomik** akan:
      - Mengubah status Maintenance menjadi `in_progress`.
-     - Menerbitkan record **SPK baru** yang terhubung ke pengajuan tersebut.
+     - Menerbitkan record **SPK baru** (menggunakan data estimasi biaya dan jadwal dari request).
      - Mencatat audit trail di `approval_logs`.
-4. **Penyelesaian:** Setelah pekerjaan selesai, Admin/Teknisi mengubah status menjadi `done`.
+4. **Penyelesaian & Rekap Otomatis:** 
+   - Setelah pekerjaan selesai, Admin mengubah status menjadi `done`.
+   - **Sistem secara otomatis** menerbitkan record **Rekap Maintenance**.
 
 ### C. Alur Keamanan & Audit Trail
-- **Middleware JWT:** Setiap request divalidasi integritas tokennya. Jika user dinonaktifkan oleh Super Admin, akses akan langsung diputus (`403 Forbidden`).
-- **Audit Trail (RecordApprovalLog):** Setiap perpindahan status (misal: `pending_kasi` -> `pending_pust`) dicatat secara otomatis dalam tabel `approval_logs` beserta catatan (*note*) dan aktor yang melakukannya.
+- **Middleware JWT:** Setiap request divalidasi integritas tokennya. Jika user dinonaktifkan, akses langsung diputus.
+- **Ownership Enforcement:** Role `admin` hanya dapat mengakses, mengelola, dan melihat data (Items/Maintenance) yang mereka buat sendiri.
+- **Secure Image Processing:** Semua file gambar yang diunggah melalui proses re-encoding (GD Library) untuk menghapus metadata EXIF berbahaya.
+- **Audit Trail (RecordApprovalLog):** Setiap perpindahan status dicatat otomatis di `approval_logs`.
 
 ---
 
@@ -46,88 +49,65 @@ Ini adalah alur paling kritis yang mengintegrasikan pengajuan perbaikan dengan p
 
 | Role | Tanggung Jawab Utama |
 | :--- | :--- |
-| **Super Admin** | Manajemen User, Role, dan Reset Password sistem secara keseluruhan. |
-| **Admin** | Operasional harian: Input Item, Pengajuan Maintenance, Update Profil. |
+| **Super Admin** | Manajemen User, Role, dan Keamanan Sistem. (Dilindungi dari Self-Deactivation). |
+| **Admin** | Operasional harian: Input Item, Pengajuan Maintenance, Update Profil. (Terbatas pada Ownership). |
 | **Kasi** | Verifikator Level 1: Review Item baru dan Review pengajuan Maintenance awal. |
-| **Kel_Pust** | Final Approver: Aktivasi Item dan Penentu Anggaran/Jadwal SPK Maintenance. |
+| **Kel_Pust** | Final Approver: Aktivasi Item dan Penerbitan SPK Otomatis. |
 
 ---
 
 ## 4. Standar Kode & Struktur API
 
-- **RESTful API:** Menggunakan metode HTTP yang tepat (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
-- **Resource Mapping:** Semua response dibungkus menggunakan `Eloquent Resources` untuk menyembunyikan detail database.
-- **Atomic Transaction:** Pembuatan Maintenance dan SPK dibungkus dalam `DB::beginTransaction` untuk mencegah data korup jika terjadi error di tengah proses.
+- **RESTful API:** Menggunakan metode HTTP tepat (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+- **Secure Upload Trait:** Menggunakan `SecureImageUpload` trait untuk semua proses upload ke AWS S3.
+- **Atomic Transaction:** Pembuatan Maintenance, SPK, dan Rekap dibungkus dalam `DB::beginTransaction`.
 
 ---
 
-## 5. Hasil Audit Kode & Bug Report (Juni 2026)
-
-Berikut adalah daftar temuan bug, potensi celah keamanan, dan inkonsistensi yang ditemukan selama audit sistem:
+## 5. Hasil Audit Kode & Bug Report (Update Juni 2026)
 
 ### A. Critical & Logic Bugs [FIXED]
-1.  **Race Condition (Sequence Generation):**
-    - **Status:** FIXED. Menambahkan `lockForUpdate()` di `SPKService` dan memastikan `unique()` constraint di migration.
-2.  **Inconsistent Category Update:**
-    - **Status:** FIXED. Mengoreksi pengecekan dari `category` menjadi `category_uuid` di `ItemService`.
-3.  **Missing Transaction on Auth Refresh:**
-    - **Status:** FIXED. Menambahkan `DB::transaction` pada `AuthService::refresh`.
+1.  **Race Condition (Sequence Generation):** FIXED.
+2.  **Inconsistent Category Update:** FIXED. 
+3.  **Missing Transaction on Auth Refresh:** FIXED.
+4.  **Status Transition Loophole (Maintenance):** FIXED. Implementasi strict workflow dan otomatisasi SPK.
 
 ### B. Database & Schema Issues [UPDATED]
-1.  **Missing Index/Unique Constraint:**
-    - **Status:** FIXED. Menambahkan `unique()` pada field `uuid` tabel `items`.
-2.  **Missing Unique Constraint on Sequence Numbers:**
-    - **Status:** FIXED. Menambahkan `unique()` pada field `nomor_pengajuan` di `maintenance_requests`.
+1.  **Missing Index/Unique Constraint:** FIXED.
+2.  **Missing Unique Constraint on Sequence Numbers:** FIXED.
 
 ### C. Security & API Issues [FIXED]
-1.  **Inconsistent Pagination:**
-    - **Status:** FIXED. Menambahkan paginasi di `ItemService::getAllItem` agar konsisten dengan `UserService`.
-2.  **Fragile S3 Path Extraction:**
-    - **Status:** FIXED. Menggunakan `Storage::disk('s3')->url('')` sebagai basis untuk ekstraksi path yang lebih aman di `MaintenanceService` dan `UserService`.
-3.  **Silent Failure in Profile Update:**
-    - **Status:** FIXED. Menggunakan `updateOrCreate()` pada `UserService::updateUser` untuk menjamin record profil dibuat jika belum ada.
+1.  **Inconsistent Pagination:** FIXED.
+2.  **Fragile S3 Path Extraction:** FIXED.
+3.  **Silent Failure in Profile Update:** FIXED.
 
 ### D. Coding Standards & Maintenance [UPDATED]
-1.  **Stale Documentation:**
-    - **Status:** FIXED. Memperbarui docblock di `MaintenanceService::updateStatus`.
-2.  **Inconsistent Endpoint Naming:**
-    - **Status:** PENDING. Memerlukan diskusi desain lebih lanjut untuk standarisasi kebab-case vs plural/singular.
+1.  **Stale Documentation:** FIXED.
+2.  **Inconsistent Endpoint Naming:** PENDING.
 
 ---
 
-## 6. Laporan Security Audit & Penetration Test (Simulasi)
-
-Saya telah melakukan simulasi "Serangan Backend" dengan mengaudit logika kode terhadap OWASP Top 10. Berikut adalah hasil "kebobolan" dan celah yang ditemukan:
+## 6. Laporan Security Audit & Penetration Test (STATUS: ALL FIXED)
 
 ### A. Vulnerability: Sensitive Data Exposure (High Risk)
-- **Temuan:** Akun Enumeration.
-- **Detail:** Pada `AuthService::login`, pesan error membedakan antara "Email incorrect" dan "Password incorrect".
-- **Exploit:** Hacker dapat melakukan *brute-force* untuk mengumpulkan daftar email valid pengguna sistem hanya dengan melihat perbedaan pesan error tersebut.
-- **Dampak:** Mempermudah serangan *phishing* atau *credential stuffing* karena hacker sudah tahu email mana yang terdaftar.
+- **Temuan:** Akun Enumeration pada Login.
+- **Status:** **FIXED**. Menggunakan pesan error generik "Invalid credentials".
 
 ### B. Vulnerability: Insecure Direct Object Reference (IDOR) (Medium Risk)
 - **Temuan:** Global Admin Ownership.
-- **Detail:** Pada modul `Items` dan `Maintenance`, pengecekan hanya dilakukan di level Role (`role:admin`). Tidak ada pengecekan kepemilikan aset (Ownership).
-- **Exploit:** Seorang Admin dari Departemen A dapat mengubah atau menghapus pengajuan Maintenance milik Departemen B hanya dengan mengetahui UUID-nya.
-- **Dampak:** Integritas data antar departemen bisa terganggu jika UUID bocor atau tertebak (lewat logs).
+- **Status:** **FIXED**. Implementasi Ownership Check di level Service untuk modul Items dan Maintenance.
 
 ### C. Vulnerability: Broken Access Control (Medium Risk)
 - **Temuan:** Self-Deactivation DoS.
-- **Detail:** Pada `UserService::updateUserStatus`, tidak ada proteksi bagi Super Admin untuk menonaktifkan akunnya sendiri.
-- **Exploit:** Jika hacker berhasil masuk ke satu akun Super Admin, dia bisa menonaktifkan SEMUA akun Super Admin lainnya (termasuk dirinya sendiri) untuk mengunci sistem secara total.
-- **Dampak:** *Permanent Denial of Service* pada panel administrasi hingga database diperbaiki manual.
+- **Status:** **FIXED**. Proteksi di `UserService` untuk mencegah Super Admin menonaktifkan diri sendiri atau menghapus Super Admin terakhir.
 
 ### D. Vulnerability: Unrestricted File Upload (Low-Medium Risk)
-- **Temuan:** Logic Bypass via Metadata.
-- **Detail:** Validasi file di `ProfileUpdateRequest` hanya menggunakan `mimes:jpeg,png...`. Meskipun cukup kuat, sistem tidak melakukan *re-encoding* gambar.
-- **Exploit:** Hacker dapat menyisipkan *malicious payload* (PHP code) di dalam metadata (EXIF) sebuah gambar valid. Jika server web salah konfigurasi dalam mengeksekusi file di folder `avatars`, ini bisa menjadi *Remote Code Execution*.
-- **Dampak:** Potensi pengambilalihan server jika konfigurasi S3/Web server tidak ketat.
+- **Temuan:** Logic Bypass via Metadata (EXIF Payload).
+- **Status:** **FIXED**. Implementasi `SecureImageUpload` Trait dengan re-encoding gambar (GD) untuk menghapus metadata.
 
 ### E. Vulnerability: Broken Access Control (Horizontal)
 - **Temuan:** `updateStatus` Loophole.
-- **Detail:** Pada `MaintenanceService::updateStatus`, role `kasi` bisa menyetujui draft ke `pending_pust`. Namun, jika seorang `kasi` mengirimkan status `in_progress` lewat API manual, sistem hanya mengandalkan pengecekan `$roleTransitions`. Jika array ini ada kesalahan satu baris saja, proteksi jebol.
+- **Status:** **FIXED**. Validasi strict transisi status berdasarkan role dan otomatisasi penerbitan SPK.
 
 ---
-*Rekomendasi Utama: Ubah pesan login menjadi "Invalid credentials" dan tambahkan Ownership check pada setiap resource.*
-
-
+*Terakhir diperbarui: 18 Juni 2026*

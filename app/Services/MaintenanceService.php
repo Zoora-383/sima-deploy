@@ -9,6 +9,7 @@ use App\Models\MaintenanceRequest;
 use App\Models\SPK;
 use App\Models\User;
 use App\Traits\RecordApprovalLog;
+use App\Traits\SecureImageUpload;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class MaintenanceService
 {
-    use RecordApprovalLog;
+    use RecordApprovalLog, SecureImageUpload;
 
     protected $spkService;
 
@@ -58,16 +59,7 @@ class MaintenanceService
      */
     private function uploadToS3($file): string
     {
-        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-
-        $path = Storage::disk('s3')->putFileAs(
-            'maintenance_items',
-            $file,
-            $filename,
-            ['visibility' => 'public']
-        );
-
-        return Storage::disk('s3')->url($path);
+        return $this->secureUpload($file, 'maintenance_items');
     }
 
     /**
@@ -76,19 +68,7 @@ class MaintenanceService
      */
     private function deleteFromS3(?string $imageUrl): void
     {
-        if (!$imageUrl) {
-            return;
-        }
-
-        try {
-            $baseUrl = Storage::disk('s3')->url('');
-            $filePath = str_replace($baseUrl, '', $imageUrl);
-
-            Storage::disk('s3')->delete($filePath);
-        } catch (Exception $e) {
-            // Jangan throw — log saja agar rollback tetap berjalan
-            Log::warning("Gagal hapus file S3: {$imageUrl} — " . $e->getMessage());
-        }
+        $this->deleteFileFromS3($imageUrl);
     }
 
     /**
@@ -206,19 +186,39 @@ class MaintenanceService
     // READ
     // =========================================================================
 
-    public function getAllMaintenance()
+    /**
+     * Get all maintenance requests
+     * @param User $currentUser
+     * @throws Exception
+     */
+    public function getAllMaintenance(User $currentUser)
     {
         try {
-            return MaintenanceRequest::with([
+            $query = MaintenanceRequest::with([
                 'item.category',
                 'requester.userProfile',
-            ])->latest()->get();
+            ]);
+
+            if ($currentUser->role->name === 'admin') {
+                $query->where('requester_id', $currentUser->id);
+            }
+
+            return $query->latest()->get();
         } catch (Exception $e) {
             throw new Exception("Gagal mengambil data maintenance: " . $e->getMessage());
         }
     }
 
-    public function getDetailMaintenance(string $maintenanceUuid): MaintenanceRequest
+    /**
+     * Get detail maintenance request
+     * @param string $maintenanceUuid
+     * @param User $currentUser
+     * @throws NotFoundHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * @throws Exception
+     * @return MaintenanceRequest
+     */
+    public function getDetailMaintenance(string $maintenanceUuid, User $currentUser): MaintenanceRequest
     {
         try {
             $maintenance = MaintenanceRequest::with([
@@ -232,8 +232,12 @@ class MaintenanceService
                 throw new NotFoundHttpException('Maintenance not found.');
             }
 
+            if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
+                throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to access this maintenance request.');
+            }
+
             return $maintenance;
-        } catch (NotFoundHttpException $e) {
+        } catch (NotFoundHttpException | \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
             throw $e;
         } catch (Exception $e) {
             throw new Exception("Gagal mengambil detail maintenance: " . $e->getMessage());
@@ -244,7 +248,18 @@ class MaintenanceService
     // UPDATE — Header + Items
     // =========================================================================
 
-    public function updateMaintenance(array $data, string $maintenanceUuid): MaintenanceRequest
+    /**
+     * Update maintenance request
+     * @param array $data
+     * @param string $maintenanceUuid
+     * @param User $currentUser
+     * @throws NotFoundHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * @throws \InvalidArgumentException
+     * @throws Exception
+     * @return MaintenanceRequest
+     */
+    public function updateMaintenance(array $data, string $maintenanceUuid, User $currentUser): MaintenanceRequest
     {
         $maintenance = MaintenanceRequest::with('maintenanceItems')
             ->where('uuid', $maintenanceUuid)
@@ -252,6 +267,10 @@ class MaintenanceService
 
         if (!$maintenance) {
             throw new NotFoundHttpException('Maintenance not found.');
+        }
+
+        if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update this maintenance request.');
         }
 
         $allowedStatuses = ['draft', 'rejected'];
@@ -350,6 +369,8 @@ class MaintenanceService
             $this->cleanupUploadedFiles($urlsToDelete);
 
             return $maintenance->fresh()->load('maintenanceItems');
+        } catch (NotFoundHttpException | \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
 
@@ -366,8 +387,14 @@ class MaintenanceService
 
     /**
      * Hapus maintenance request beserta file S3 item-itemnya.
+     * @param string $maintenanceUuid
+     * @param User $currentUser
+     * @throws NotFoundHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * @throws Exception
+     * @return MaintenanceRequest
      */
-    public function deleteMaintenance(string $maintenanceUuid): MaintenanceRequest
+    public function deleteMaintenance(string $maintenanceUuid, User $currentUser): MaintenanceRequest
     {
         $maintenance = MaintenanceRequest::with('maintenanceItems')
             ->where('uuid', $maintenanceUuid)
@@ -375,6 +402,10 @@ class MaintenanceService
 
         if (!$maintenance) {
             throw new NotFoundHttpException('Maintenance not found.');
+        }
+
+        if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to delete this maintenance request.');
         }
 
         try {
@@ -393,6 +424,8 @@ class MaintenanceService
             $this->cleanupUploadedFiles($imageUrls);
 
             return $maintenance;
+        } catch (NotFoundHttpException | \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Gagal menghapus maintenance: " . $e->getMessage());
@@ -405,13 +438,6 @@ class MaintenanceService
 
     /**
      * Update status maintenance sesuai role dan alur persetujuan.
-     *
-     * Transisi yang diizinkan:
-     *   admin    : draft → pending_kasi
-     *              in_progress → done
-     *              pending_kasi|pending_pust → rejected
-     *   kasi     : pending_kasi → pending_pust | rejected
-     *   kel_pust : pending_pust → in_progress | rejected
      */
     public function updateStatus(string $maintenanceUuid, array $data, User $currentUser): MaintenanceRequest
     {
@@ -419,6 +445,10 @@ class MaintenanceService
 
         if (!$maintenance) {
             throw new NotFoundHttpException('Maintenance not found.');
+        }
+
+        if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update the status of this maintenance request.');
         }
 
         $statusFrom = $maintenance->status;
@@ -431,12 +461,10 @@ class MaintenanceService
         $roleTransitions = [
             'admin' => [
                 'draft'        => ['pending_kasi'],
+                'rejected'     => ['pending_kasi'], // Allow resubmission after rejection/revision
                 'in_progress'  => ['done'],
-                'pending_kasi' => ['rejected'],
-                'pending_pust' => ['rejected'],
             ],
             'kasi'     => [
-                'draft'        => ['pending_pust'], // Kasi approves draft directly to next stage
                 'pending_kasi' => ['pending_pust', 'rejected']
             ],
             'kel_pust' => [
@@ -444,16 +472,30 @@ class MaintenanceService
             ],
         ];
 
-        $allowed = $roleTransitions[$currentUser->role->name][$statusFrom] ?? [];
+        // Super Admin can bypass transitions if needed, or add them here. 
+        // For now, follow the strict flow.
+        $roleName = $currentUser->role->name;
+        $allowed = $roleTransitions[$roleName][$statusFrom] ?? [];
 
         if (!in_array($statusTo, $allowed)) {
             throw new \InvalidArgumentException(
-                "Anda tidak memiliki izin untuk melakukan transisi status ini."
+                "Role {$roleName} tidak diizinkan mengubah status dari " . str_replace('_', ' ', $statusFrom) . " ke " . str_replace('_', ' ', $statusTo)
             );
         }
 
         try {
             DB::beginTransaction();
+
+            // --- AUTOMATION: SPK CREATION ---
+            // Triggered when Kel_Pust approves to in_progress
+            if ($statusTo === 'in_progress' && $statusFrom === 'pending_pust') {
+                $this->spkService->addSPK([
+                    'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif']  ?? now()->toDateString(),
+                    'tanggal_selesai_target'  => $data['tanggal_selesai_target'] ?? now()->addDays(7)->toDateString(),
+                    'pagu_anggaran_disetujui' => $data['pagu_anggaran_disetujui'] ?? 0,
+                    'note'                    => $data['note'] ?? 'SPK otomatis dibuat oleh sistem saat persetujuan Kepala Pustakawan.'
+                ], $currentUser, $maintenance->uuid);
+            }
 
             $maintenance->update(['status' => $statusTo]);
 
@@ -463,10 +505,12 @@ class MaintenanceService
 
             $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
 
+            // --- AUTOMATION: REKAP CREATION ---
+            // Triggered when Admin finishes to done
             if ($statusTo === 'done') {
                 $spk = SPK::where('maintenance_id', $maintenance->id)->first();
                 if ($spk) {
-                    $this->addRekapsMaintenance([], $spk->uuid);
+                    $this->addRekapsMaintenance($data, $spk->uuid);
                 }
             }
 

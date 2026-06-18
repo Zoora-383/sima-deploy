@@ -62,6 +62,12 @@ class SPKService
             throw new NotFoundHttpException('Maintenance tidak ditemukan untuk pembuatan SPK.');
         }
 
+        // Prevent duplicate SPK for the same maintenance request
+        $existingSpk = SPK::where('maintenance_id', $maintenance->id)->first();
+        if ($existingSpk) {
+            return $existingSpk; // Return existing if already created
+        }
+
         $allowedStatuses = ['pending_pust', 'in_progress'];
         if (!in_array($maintenance->status, $allowedStatuses)) {
             throw new InvalidArgumentException("SPK hanya dapat dibuat untuk pengajuan maintenance yang telah disetujui Kepala PUSTIKOM (Status saat ini: " . str_replace('_', ' ', $maintenance->status) . ").");

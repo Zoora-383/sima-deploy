@@ -58,7 +58,8 @@ class MaintenanceController extends Controller
     public function index()
     {
         try {
-            $maintenances = $this->maintenanceService->getAllMaintenance();
+            $currentUser = auth('api')->user();
+            $maintenances = $this->maintenanceService->getAllMaintenance($currentUser);
 
             return $this->successResponse(
                 MaintenanceResource::collection($maintenances),
@@ -73,7 +74,8 @@ class MaintenanceController extends Controller
     public function show(string $uuid)
     {
         try {
-            $maintenance = $this->maintenanceService->getDetailMaintenance($uuid);
+            $currentUser = auth('api')->user();
+            $maintenance = $this->maintenanceService->getDetailMaintenance($uuid, $currentUser);
 
             return $this->successResponse(
                 new MaintenanceDetailResource($maintenance),
@@ -81,6 +83,8 @@ class MaintenanceController extends Controller
             );
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
             Log::error('Maintenance Show Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to fetch maintenance detail.', 500);
@@ -101,9 +105,11 @@ class MaintenanceController extends Controller
     public function update(MaintenanceUpdateRequest $request, string $uuid)
     {
         try {
+            $currentUser = auth('api')->user();
             $maintenance = $this->maintenanceService->updateMaintenance(
                 $request->validated(),
-                $uuid
+                $uuid,
+                $currentUser
             );
 
             return $this->successResponse(
@@ -112,6 +118,8 @@ class MaintenanceController extends Controller
             );
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
@@ -123,11 +131,14 @@ class MaintenanceController extends Controller
     public function destroy(string $uuid)
     {
         try {
-            $this->maintenanceService->deleteMaintenance($uuid);
+            $currentUser = auth('api')->user();
+            $this->maintenanceService->deleteMaintenance($uuid, $currentUser);
 
             return $this->successResponse(null, 'Deleted maintenance successfully');
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
             Log::error('Maintenance Destroy Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to delete maintenance.', 500);

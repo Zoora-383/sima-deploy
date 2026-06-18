@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Role;
 use App\Models\User;
 // use App\Traits\CloudinaryUpload;
+use App\Traits\SecureImageUpload;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +17,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserService
 {
+    use SecureImageUpload;
     // use CloudinaryUpload;
 
     // SUPER ADMIN METHOD USER MANAGEMENT
@@ -103,15 +105,32 @@ class UserService
 
     /**
      * @param string $userUuid
-     * @throws NotFoundHttpException|Exception
+     * @param User $currentUser
+     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
      * @return User|\stdClass
      */
-    public function deleteUser(string $userUuid)
+    public function deleteUser(string $userUuid, User $currentUser)
     {
         $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
 
         if (!$user) {
             throw new NotFoundHttpException('User not found.');
+        }
+
+        // 1. Prevent self-deletion
+        if ($currentUser->id === $user->id) {
+            throw new AccessDeniedHttpException('Anda tidak dapat menghapus akun Anda sendiri.');
+        }
+
+        // 2. Prevent deleting the last active super-admin
+        if ($user->role->name === 'super-admin') {
+            $activeSuperAdminCount = User::whereHas('role', function ($q) {
+                $q->where('name', 'super-admin');
+            })->where('is_active', true)->count();
+
+            if ($activeSuperAdminCount <= 1 && $user->is_active) {
+                throw new AccessDeniedHttpException('Sistem harus memiliki setidaknya satu Super Admin yang aktif.');
+            }
         }
 
         try {
@@ -126,10 +145,11 @@ class UserService
     /**
      * @param array $data
      * @param string $userUuid
-     * @throws NotFoundHttpException|Exception
+     * @param User $currentUser
+     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
      * @return User|null
      */
-    public function updateUser(array $data, string $userUuid)
+    public function updateUser(array $data, string $userUuid, User $currentUser)
     {
         $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
 
@@ -144,6 +164,16 @@ class UserService
             if (isset($data['role_uuid'])) {
                 $role = Role::where('uuid', $data['role_uuid'])->first();
                 if ($role) {
+                    // Prevent changing own role if it's the last super-admin
+                    if ($user->id === $currentUser->id && $user->role->name === 'super-admin' && $role->name !== 'super-admin') {
+                        $activeSuperAdminCount = User::whereHas('role', function ($q) {
+                            $q->where('name', 'super-admin');
+                        })->where('is_active', true)->count();
+
+                        if ($activeSuperAdminCount <= 1) {
+                            throw new AccessDeniedHttpException('Anda tidak dapat mengubah role Anda sendiri karena Anda adalah satu-satunya Super Admin aktif.');
+                        }
+                    }
                     $userData['role_id'] = $role->id;
                 }
             }
@@ -182,17 +212,36 @@ class UserService
      * Summary of updateUserStatus
      * @param string $userUuid
      * @param bool $status
+     * @param User $currentUser
      * @throws NotFoundHttpException
+     * @throws AccessDeniedHttpException
      * @throws Exception
      * @return User|\stdClass
      */
-    public function updateUserStatus(string $userUuid, bool $status)
+    public function updateUserStatus(string $userUuid, bool $status, User $currentUser)
     {
         $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
 
         if (!$user) {
             throw new NotFoundHttpException('User not found.');
         }
+
+        // 1. Prevent self-deactivation
+        if ($currentUser->id === $user->id && $status === false) {
+            throw new AccessDeniedHttpException('Anda tidak dapat menonaktifkan akun Anda sendiri.');
+        }
+
+        // 2. Prevent deactivating the last active super-admin
+        if ($user->role->name === 'super-admin' && $status === false) {
+            $activeSuperAdminCount = User::whereHas('role', function ($q) {
+                $q->where('name', 'super-admin');
+            })->where('is_active', true)->count();
+
+            if ($activeSuperAdminCount <= 1) {
+                throw new AccessDeniedHttpException('Sistem harus memiliki setidaknya satu Super Admin yang aktif.');
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -201,6 +250,9 @@ class UserService
             DB::commit();
 
             return $user;
+        } catch (AccessDeniedHttpException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Failed to update user status: " . $e->getMessage());
@@ -235,21 +287,8 @@ class UserService
             $avatarPath = $existingProfile?->avatar_url;
 
             if ($file) {
-                if ($avatarPath) {
-                    $baseUrl = Storage::disk('s3')->url('');
-                    $oldPath = str_replace($baseUrl, '', $avatarPath);
-
-                    Log::info('Deleting old avatar', [
-                        'path' => $oldPath,
-                        'exists' => Storage::disk('s3')->exists($oldPath)
-                    ]);
-
-                    Storage::disk('s3')->delete($oldPath);
-                }
-
-                $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-                $path = Storage::disk('s3')->putFileAs('avatars', $file, $filename, 'public');
-                $avatarPath = Storage::disk('s3')->url($path);
+                $this->deleteFileFromS3($avatarPath);
+                $avatarPath = $this->secureUpload($file, 'avatars');
             }
 
             // 3. Update or Create Profile Detail

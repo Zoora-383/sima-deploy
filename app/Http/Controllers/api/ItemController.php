@@ -47,7 +47,8 @@ class ItemController extends Controller
     public function index()
     {
         try {
-            $items = $this->itemService->getAllItem();
+            $currentUser = auth('api')->user();
+            $items = $this->itemService->getAllItem($currentUser);
 
             return $this->successResponse(
                 ['items' => ItemResource::collection($items)],
@@ -64,7 +65,8 @@ class ItemController extends Controller
     public function show(string $uuid)
     {
         try {
-            $item = $this->itemService->getDetailItem($uuid);
+            $currentUser = auth('api')->user();
+            $item = $this->itemService->getDetailItem($uuid, $currentUser);
 
             return $this->successResponse(
                 ['item' => new ItemDetailResource($item)],
@@ -81,7 +83,8 @@ class ItemController extends Controller
     public function destroy(string $uuid)
     {
         try {
-            $message = $this->itemService->deleteItem($uuid);
+            $currentUser = auth('api')->user();
+            $message = $this->itemService->deleteItem($uuid, $currentUser);
 
             return $this->successResponse(null, $message);
         } catch (AccessDeniedHttpException $e) {
@@ -95,8 +98,9 @@ class ItemController extends Controller
     public function update(ItemUpdateRequest $request, string $uuid)
     {
         try {
+            $currentUser = auth('api')->user();
             $file = $request->file('image_item');
-            $item = $this->itemService->updateItem($uuid, $request->validated(), $file);
+            $item = $this->itemService->updateItem($uuid, $request->validated(), $file, $currentUser);
 
             return $this->successResponse(
                 ['item' => new ItemResource($item)],
