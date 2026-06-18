@@ -24,6 +24,7 @@ class SPKService
 
         $lastSpk = SPK::whereYear('created_at', $tahunCurrent)
             ->latest('id')
+            ->lockForUpdate()
             ->first();
 
         if (!$lastSpk) {

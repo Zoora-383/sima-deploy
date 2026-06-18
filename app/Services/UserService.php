@@ -162,7 +162,12 @@ class UserService
             if (isset($data['location']))   $profileData['location'] = $data['location'];
 
             if (!empty($profileData)) {
-                $user->userProfile()->update($profileData);
+                $user->userProfile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    array_merge($profileData, [
+                        'uuid' => $user->userProfile?->uuid ?? (string) Str::uuid()
+                    ])
+                );
             }
 
             DB::commit();
@@ -231,18 +236,12 @@ class UserService
 
             if ($file) {
                 if ($avatarPath) {
-                    $oldPath = parse_url($avatarPath, PHP_URL_PATH);
-                    $oldPath = ltrim($oldPath, '/');
+                    $baseUrl = Storage::disk('s3')->url('');
+                    $oldPath = str_replace($baseUrl, '', $avatarPath);
 
-                    $bucket = config('filesystems.disks.s3.bucket');
-                    if (str_starts_with($oldPath, $bucket . '/')) {
-                        $oldPath = substr($oldPath, strlen($bucket) + 1);
-                    }
-
-                    $exists = Storage::disk('s3')->exists($oldPath);
                     Log::info('Deleting old avatar', [
                         'path' => $oldPath,
-                        'exists' => $exists
+                        'exists' => Storage::disk('s3')->exists($oldPath)
                     ]);
 
                     Storage::disk('s3')->delete($oldPath);

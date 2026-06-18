@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('maintenance_requests', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->string('nomor_pengajuan');
+            $table->string('nomor_pengajuan')->unique();
             $table->foreignId('item_id')->constrained()->cascadeOnDelete();
             $table->foreignId('requester_id')->constrained('users', 'id')->cascadeOnDelete();
             $table->string('title');

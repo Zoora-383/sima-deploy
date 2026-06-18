@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Maintenance\MaintenanceRekapRequest;
 use App\Http\Requests\Maintenance\MaintenanceStatusRequest;
 use App\Http\Requests\Maintenance\MaintenanceStoreRequest;
 use App\Http\Requests\Maintenance\MaintenanceUpdateRequest;
@@ -154,6 +155,70 @@ class MaintenanceController extends Controller
         } catch (Exception $e) {
             Log::error('Maintenance Update Status Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to update maintenance status.', 500);
+        }
+    }
+
+    public function updateRekap(MaintenanceRekapRequest $request, string $uuid)
+    {
+        try {
+            $maintenance = $this->maintenanceService->getDetailMaintenance($uuid);
+            $spk = \App\Models\SPK::where('maintenance_id', $maintenance->id)->first();
+
+            if (!$spk) {
+                return $this->errorResponse('SPK tidak ditemukan untuk maintenance ini.', 404);
+            }
+
+            $rekap = $this->maintenanceService->addRekapsMaintenance(
+                $request->validated(),
+                $spk->uuid
+            );
+
+            return $this->successResponse(
+                $rekap,
+                'Updated maintenance rekap successfully'
+            );
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (Exception $e) {
+            Log::error('Maintenance Update Rekap Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to update maintenance rekap.', 500);
+        }
+    }
+
+    public function indexRekap()
+    {
+        try {
+            $rekaps = $this->maintenanceService->getAllRekaps();
+            return $this->successResponse($rekaps, 'Get all rekaps successfully');
+        } catch (Exception $e) {
+            Log::error('Maintenance Index Rekap Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to fetch rekaps.', 500);
+        }
+    }
+
+    public function showRekap(string $rekapUuid)
+    {
+        try {
+            $rekap = $this->maintenanceService->getRekapDetail($rekapUuid);
+            return $this->successResponse($rekap, 'Get detail rekap successfully');
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (Exception $e) {
+            Log::error('Maintenance Show Rekap Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to fetch rekap detail.', 500);
+        }
+    }
+
+    public function destroyRekap(string $rekapUuid)
+    {
+        try {
+            $this->maintenanceService->deleteRekap($rekapUuid);
+            return $this->successResponse(null, 'Deleted rekap successfully');
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (Exception $e) {
+            Log::error('Maintenance Destroy Rekap Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to delete rekap.', 500);
         }
     }
 }

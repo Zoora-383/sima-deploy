@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Item;
 use App\Models\MaintenanceItem;
+use App\Models\MaintenanceRekap;
 use App\Models\MaintenanceRequest;
+use App\Models\SPK;
 use App\Models\User;
 use App\Traits\RecordApprovalLog;
 use Carbon\Carbon;
@@ -79,12 +81,8 @@ class MaintenanceService
         }
 
         try {
-            // Ekstrak path relatif dari URL publik S3
-            $parsed   = parse_url($imageUrl);
-            $s3Path   = ltrim($parsed['path'] ?? '', '/');
-            // Hapus bucket prefix jika ada (format: bucket/path/file.ext)
-            $parts    = explode('/', $s3Path, 2);
-            $filePath = count($parts) === 2 ? $parts[1] : $s3Path;
+            $baseUrl = Storage::disk('s3')->url('');
+            $filePath = str_replace($baseUrl, '', $imageUrl);
 
             Storage::disk('s3')->delete($filePath);
         } catch (Exception $e) {
@@ -414,8 +412,6 @@ class MaintenanceService
      *              pending_kasi|pending_pust → rejected
      *   kasi     : pending_kasi → pending_pust | rejected
      *   kel_pust : pending_pust → in_progress | rejected
-     *
-     * Jika status berubah ke 'in_progress', SPK dibuat otomatis.
      */
     public function updateStatus(string $maintenanceUuid, array $data, User $currentUser): MaintenanceRequest
     {
@@ -467,16 +463,11 @@ class MaintenanceService
 
             $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
 
-            if ($statusTo === 'in_progress') {
-                $spkData = [
-                    'maintenance_id'          => $maintenance->id,
-                    'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif'],
-                    'tanggal_selesai_target'  => $data['tanggal_selesai_target'],
-                    'pagu_anggaran_disetujui' => $data['pagu_anggaran_disetujui'],
-                    'note'                    => "SPK diterbitkan otomatis setelah persetujuan Kepala Pustakawan.",
-                ];
-
-                $this->spkService->addSPK($spkData, $currentUser, $maintenance->uuid);
+            if ($statusTo === 'done') {
+                $spk = SPK::where('maintenance_id', $maintenance->id)->first();
+                if ($spk) {
+                    $this->addRekapsMaintenance([], $spk->uuid);
+                }
             }
 
             DB::commit();
@@ -485,6 +476,78 @@ class MaintenanceService
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Gagal mengubah status maintenance: " . $e->getMessage());
+        }
+    }
+
+    // Method rekaps for maintenance
+    public function getAllRekaps()
+    {
+        try {
+            return MaintenanceRekap::with(['spk.maintenance.item'])->latest()->get();
+        } catch (Exception $e) {
+            throw new Exception("Gagal mengambil data rekap: " . $e->getMessage());
+        }
+    }
+
+    public function getRekapDetail(string $rekapUuid)
+    {
+        $rekap = MaintenanceRekap::with(['spk.maintenance.item', 'attachments'])
+            ->where('uuid', $rekapUuid)
+            ->first();
+
+        if (!$rekap) {
+            throw new NotFoundHttpException('Data rekap tidak ditemukan.');
+        }
+
+        return $rekap;
+    }
+
+    public function deleteRekap(string $rekapUuid)
+    {
+        $rekap = MaintenanceRekap::where('uuid', $rekapUuid)->first();
+
+        if (!$rekap) {
+            throw new NotFoundHttpException('Data rekap tidak ditemukan.');
+        }
+
+        try {
+            $rekap->delete();
+            return $rekap;
+        } catch (Exception $e) {
+            throw new Exception("Gagal menghapus rekap: " . $e->getMessage());
+        }
+    }
+
+    public function addRekapsMaintenance(array $data, string $spkUuid)
+    {
+        $spk = SPK::where('uuid', $spkUuid)->first();
+
+        if (!$spk) {
+            throw new NotFoundHttpException('Surat kerja yang selesai gagal ditemukan');
+        }
+
+        try {
+            $rekaps = MaintenanceRekap::where('spk_id', $spk->id)->first();
+
+            $payload = [
+                'status'                      => $data['status'] ?? ($rekaps->status ?? 'success'),
+                'ringkasan_tindakan'          => $data['ringkasan_tindakan'] ?? ($rekaps->ringkasan_tindakan ?? null),
+                'realisasi_biaya'             => $data['realisasi_biaya'] ?? ($rekaps->realisasi_biaya ?? null),
+                'jadwal_preventif_berikutnya' => $data['jadwal_preventif_berikutnya'] ?? ($rekaps->jadwal_preventif_berikutnya ?? null),
+            ];
+
+            if (!$rekaps) {
+                $payload['uuid']                   = (string) Str::uuid();
+                $payload['spk_id']                 = $spk->id;
+                $payload['tanggal_selesai_aktual'] = now()->toDateString();
+                $rekaps = MaintenanceRekap::create($payload);
+            } else {
+                $rekaps->update($payload);
+            }
+
+            return $rekaps;
+        } catch (Exception $e) {
+            throw new Exception("Gagal memproses rekaps maintenance: " . $e->getMessage());
         }
     }
 }

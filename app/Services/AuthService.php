@@ -152,18 +152,24 @@ class AuthService
      */
     public function refresh($guard)
     {
-        $oldToken = $guard->getToken();
-        $oldJti = JWTAuth::setToken($oldToken)->getPayload()->get('jti');
+        try {
+            return DB::transaction(function () use ($guard) {
+                $oldToken = $guard->getToken();
+                $oldJti = JWTAuth::setToken($oldToken)->getPayload()->get('jti');
 
-        $newToken = $guard->refresh();
-        $newJti = JWTAuth::setToken($newToken)->getPayload()->get('jti');
+                $newToken = $guard->refresh();
+                $newJti = JWTAuth::setToken($newToken)->getPayload()->get('jti');
 
-        // Update JTI di database agar sesi tetap valid setelah refresh
-        UserSession::where('jti', $oldJti)->update([
-            'jti'           => $newJti,
-            'last_activity' => now()
-        ]);
+                // Update JTI di database agar sesi tetap valid setelah refresh
+                UserSession::where('jti', $oldJti)->update([
+                    'jti'           => $newJti,
+                    'last_activity' => now()
+                ]);
 
-        return $newToken;
+                return $newToken;
+            });
+        } catch (Exception $e) {
+            throw new Exception("Refresh token failed: " . $e->getMessage());
+        }
     }
 }

@@ -200,11 +200,12 @@ class ItemService
      * @return \Illuminate\Database\Eloquent\Collection
      * @throws Exception
      */
-    public function getAllItem(): \Illuminate\Database\Eloquent\Collection
+    public function getAllItem(): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         try {
             return Item::select('name', 'image_item', 'code_item', 'location', 'type', 'uuid', 'units', 'status')
-                ->get();
+                ->latest()
+                ->paginate(10);
         } catch (Exception $e) {
             throw new Exception("Failed to get items: " . $e->getMessage());
         }
@@ -276,7 +277,7 @@ class ItemService
             }
 
             $needsNewCode = (isset($data['type']) && $data['type'] !== $item->type)
-                || (isset($data['category']) && $category->id !== $item->category_id);
+                || (isset($data['category_uuid']) && $category->id !== $item->category_id);
 
             $item->update([
                 'category_id' => $category->id,

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->enum('status', ['success', 'partial', 'failed']);
             $table->text('ringkasan_tindakan')->nullable();
             $table->decimal('realisasi_biaya', 10, 2)->nullable();
-            $table->date('jadwal_preventif_berikutnya');
+            $table->date('jadwal_preventif_berikutnya')->nullable();
             $table->timestamps();
         });
     }

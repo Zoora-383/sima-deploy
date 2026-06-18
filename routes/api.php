@@ -70,6 +70,12 @@ Route::prefix('v1')->group(function () {
         });
         // Maintenance Approval Workflow
         Route::middleware('role:admin,kasi,kel_pust')->patch('/maintenance/{uuid}/status', [MaintenanceController::class, 'updateStatus']);
+        Route::middleware('role:admin')->group(function () {
+            Route::patch('/maintenance/{uuid}/rekap', [MaintenanceController::class, 'updateRekap']);
+            Route::get('/maintenance/rekaps', [MaintenanceController::class, 'indexRekap']);
+            Route::get('/maintenance/rekaps/{rekap_uuid}', [MaintenanceController::class, 'showRekap']);
+            Route::delete('/maintenance/rekaps/{rekap_uuid}', [MaintenanceController::class, 'destroyRekap']);
+        });
 
         // --- SPK (SURAT PERINTAH KERJA) ---
         Route::get('/spk', [SpkController::class, 'index']);
