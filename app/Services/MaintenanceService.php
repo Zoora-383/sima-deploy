@@ -155,11 +155,8 @@ class MaintenanceService
                 'status'                         => 'draft',
             ]);
 
-            foreach ($itemsPayload as $itemData) {
-                MaintenanceItem::create(array_merge(
-                    ['maintenance_id' => $newMaintenance->id],
-                    $itemData
-                ));
+            if (!empty($itemsPayload)) {
+                $newMaintenance->maintenanceItems()->createMany($itemsPayload);
             }
 
             $this->recordLog(
@@ -352,8 +349,7 @@ class MaintenanceService
                     ]);
                 } else {
                     // Insert item baru
-                    MaintenanceItem::create([
-                        'maintenance_id'        => $maintenance->id,
+                    $maintenance->maintenanceItems()->create([
                         'nama_item'             => $itemData['nama_item'],
                         'image_item'            => $itemData['image_item'],
                         'qty'                   => $itemData['qty'] ?? null,

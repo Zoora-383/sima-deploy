@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ForcePasswordChangeMiddleware;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\SecurityHeadersMiddleware;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,8 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(SecurityHeadersMiddleware::class);
+
         $middleware->alias([
-            'role' => RoleMiddleware::class,
+            'role'                  => RoleMiddleware::class,
             'force.password.change' => ForcePasswordChangeMiddleware::class,
         ]);
     })

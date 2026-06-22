@@ -24,7 +24,7 @@ class UserStoreRequest extends FormRequest
         return [
             'role_uuid'  => 'required|uuid|exists:roles,uuid',
             'email'      => 'required|email|unique:users,email',
-            'password'   => 'required|string|min:6',
+            'password'   => 'required|string|min:8',
         ];
     }
 }

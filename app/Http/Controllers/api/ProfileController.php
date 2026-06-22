@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\ChangeMyPasswordRequest;
+use App\Http\Requests\User\DeleteAccountRequest;
 use App\Http\Requests\User\ProfileUpdateRequest;
 use App\Http\Resources\UserDetailResource;
 use App\Http\Resources\UserProfileResource;
@@ -60,7 +61,7 @@ class ProfileController extends Controller
         }
     }
 
-    public function destroy()
+    public function destroy(DeleteAccountRequest $request)
     {
         try {
             $userUuid = auth('api')->user()->uuid;

@@ -45,17 +45,17 @@ class JwtCheckMiddleware
         } catch (TokenInvalidException $e) {
             return response()->json([
                 'status'  => 'error',
-                'message' => $e->getMessage()
+                'message' => 'Token tidak valid.'
             ], 401);
         } catch (TokenExpiredException $e) {
             return response()->json([
                 'status'  => 'error',
-                'message' => $e->getMessage()
+                'message' => 'Token telah kadaluarsa. Silakan login kembali.'
             ], 401);
         } catch (JWTException $e) {
             return response()->json([
                 'status'  => 'error',
-                'message' => $e->getMessage()
+                'message' => 'Token tidak ditemukan atau tidak dapat diproses.'
             ], 401);
         }
 

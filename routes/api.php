@@ -15,14 +15,16 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
-        Route::middleware(JwtCheckMiddleware::class)->group(function () {
+        // Auth routes — JWT required, force.password.change diizinkan agar user bisa change/logout/refresh
+        Route::middleware([JwtCheckMiddleware::class])->group(function () {
             Route::post('/change-password', [AuthController::class, 'changePassword']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/refresh', [AuthController::class, 'refresh']);
         });
     });
 
-    Route::middleware(JwtCheckMiddleware::class)->group(function () {
+    // Protected routes — JWT + Force Password Change check
+    Route::middleware([JwtCheckMiddleware::class, 'force.password.change'])->group(function () {
         // --- PROFILE & ACCOUNT ---
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::patch('/profile', [ProfileController::class, 'update']);
