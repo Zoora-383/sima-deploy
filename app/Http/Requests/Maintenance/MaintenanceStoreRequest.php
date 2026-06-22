@@ -30,13 +30,13 @@ class MaintenanceStoreRequest extends FormRequest
             'total_estimated_cost'           => 'nullable|numeric|min:0',
 
             // Daftar item/layanan yang dibutuhkan
-            'items'                         => 'nullable|array',
-            'items.*'                       => 'array',
-            'items.*.nama_item'             => 'required|string|max:255',
-            'items.*.qty'                   => 'nullable|integer|min:1',
-            'items.*.satuan'                => 'nullable|string|max:50',
-            'items.*.estimasi_biaya_satuan' => 'nullable|numeric|min:0',
-            'items.*.file'                  => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
+            'request_items'                         => 'nullable|array',
+            'request_items.*'                       => 'array',
+            'request_items.*.nama_item'             => 'required|string|max:255',
+            'request_items.*.qty'                   => 'nullable|integer|min:1',
+            'request_items.*.satuan'                => 'nullable|string|max:50',
+            'request_items.*.estimasi_biaya_satuan' => 'nullable|numeric|min:0',
+            'request_items.*.image_item'            => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
         ];
     }
 
@@ -48,9 +48,9 @@ class MaintenanceStoreRequest extends FormRequest
             'title.required'                  => 'Judul pengajuan wajib diisi.',
             'priority.in'                     => 'Prioritas harus salah satu dari: high, medium, low.',
             'type.in'                         => 'Tipe harus salah satu dari: korektif, preventif.',
-            'items.*.nama_item.required_with' => 'Nama item wajib diisi.',
-            'items.*.file.mimes'              => 'File gambar harus berformat jpg, jpeg, png, atau webp.',
-            'items.*.file.max'                => 'Ukuran file maksimal 2MB.',
+            'request_items.*.nama_item.required'      => 'Nama item wajib diisi.',
+            'request_items.*.image_item.mimes'        => 'File gambar harus berformat jpg, jpeg, png, atau webp.',
+            'request_items.*.image_item.max'          => 'Ukuran file maksimal 2MB.',
         ];
     }
 }

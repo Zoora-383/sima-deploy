@@ -26,12 +26,12 @@ class MaintenanceController extends Controller
     /**
      * Store a new maintenance request.
      * @requestMediaType multipart/form-data
-     * @bodyParam items array List of items for maintenance.
-     * @bodyParam items[].nama_item string required The name of the item. Example: Sparepart A
-     * @bodyParam items[].qty integer Quantity. Example: 1
-     * @bodyParam items[].satuan string Unit. Example: pcs
-     * @bodyParam items[].estimasi_biaya_satuan number Unit cost estimate. Example: 50000
-     * @bodyParam items[].file file Item image.
+     * @bodyParam request_items array List of items for maintenance.
+     * @bodyParam request_items[].nama_item string required The name of the item. Example: Sparepart A
+     * @bodyParam request_items[].qty integer Quantity. Example: 1
+     * @bodyParam request_items[].satuan string Unit. Example: pcs
+     * @bodyParam request_items[].estimasi_biaya_satuan number Unit cost estimate. Example: 50000
+     * @bodyParam request_items[].file file Item image.
      */
     public function store(MaintenanceStoreRequest $request)
     {
@@ -94,13 +94,13 @@ class MaintenanceController extends Controller
     /**
      * Update maintenance request.
      * @requestMediaType multipart/form-data
-     * @bodyParam items array List of items for maintenance.
-     * @bodyParam items[].id integer existing item ID.
-     * @bodyParam items[].nama_item string required The name of the item. Example: Sparepart A
-     * @bodyParam items[].qty integer Quantity. Example: 1
-     * @bodyParam items[].satuan string Unit. Example: pcs
-     * @bodyParam items[].estimasi_biaya_satuan number Unit cost estimate. Example: 50000
-     * @bodyParam items[].file file Item image.
+     * @bodyParam request_items array List of items for maintenance.
+     * @bodyParam request_items[].id integer existing item ID.
+     * @bodyParam request_items[].nama_item string required The name of the item. Example: Sparepart A
+     * @bodyParam request_items[].qty integer Quantity. Example: 1
+     * @bodyParam request_items[].satuan string Unit. Example: pcs
+     * @bodyParam request_items[].estimasi_biaya_satuan number Unit cost estimate. Example: 50000
+     * @bodyParam request_items[].file file Item image.
      */
     public function update(MaintenanceUpdateRequest $request, string $uuid)
     {

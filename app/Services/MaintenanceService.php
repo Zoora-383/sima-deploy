@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Item;
-use App\Models\MaintenanceItem;
 use App\Models\MaintenanceRekap;
 use App\Models\MaintenanceRequest;
 use App\Models\SPK;
@@ -13,8 +12,6 @@ use App\Traits\SecureImageUpload;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -85,8 +82,8 @@ class MaintenanceService
         foreach ($items as $itemData) {
             $imagePath = null;
 
-            if (!empty($itemData['file'])) {
-                $imagePath      = $this->uploadToS3($itemData['file']);
+            if (!empty($itemData['image_item']) && $itemData['image_item'] instanceof \Illuminate\Http\UploadedFile) {
+                $imagePath      = $this->uploadToS3($itemData['image_item']);
                 $uploadedUrls[] = $imagePath;
             }
 
@@ -129,8 +126,8 @@ class MaintenanceService
 
         try {
             $itemsPayload = [];
-            if (!empty($data['items']) && is_array($data['items'])) {
-                $result       = $this->prepareItemsWithUpload($data['items']);
+            if (!empty($data['request_items']) && is_array($data['request_items'])) {
+                $result       = $this->prepareItemsWithUpload($data['request_items']);
                 $itemsPayload = $result['prepared'];
                 $uploadedUrls = $result['uploadedUrls'];
             }
@@ -283,7 +280,7 @@ class MaintenanceService
 
         try {
             // Step 1 — Proses items (upload file baru di luar transaksi)
-            $incomingItems   = $data['items'] ?? [];
+            $incomingItems   = $data['request_items'] ?? [];
             $incomingIds     = array_filter(array_column($incomingItems, 'id'));
             $existingItems   = $maintenance->maintenanceItems->keyBy('id');
 
@@ -297,8 +294,8 @@ class MaintenanceService
             foreach ($incomingItems as $itemData) {
                 $imagePath = null;
 
-                if (!empty($itemData['file'])) {
-                    $imagePath      = $this->uploadToS3($itemData['file']);
+                if (!empty($itemData['image_item']) && $itemData['image_item'] instanceof \Illuminate\Http\UploadedFile) {
+                    $imagePath      = $this->uploadToS3($itemData['image_item']);
                     $uploadedUrls[] = $imagePath;
 
                     // Jika item existing ganti file → tandai file lama untuk dihapus
@@ -468,7 +465,7 @@ class MaintenanceService
             ],
         ];
 
-        // Super Admin can bypass transitions if needed, or add them here. 
+        // Super Admin can bypass transitions if needed, or add them here.
         // For now, follow the strict flow.
         $roleName = $currentUser->role->name;
         $allowed = $roleTransitions[$roleName][$statusFrom] ?? [];
