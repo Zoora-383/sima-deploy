@@ -28,7 +28,7 @@ class ItemStoreRequest extends FormRequest
             'category_uuid' => ['required', 'uuid', 'exists:item_categories,uuid'],
             'location'      => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
-            'image_item'  => ['nullable', 'image', 'max:2048'],
+            'image_item'  => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'units' => [
                 Rule::requiredIf(fn() => $this->input('type') === 'logistic'),
                 'nullable',
