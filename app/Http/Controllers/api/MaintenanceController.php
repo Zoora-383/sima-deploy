@@ -139,6 +139,8 @@ class MaintenanceController extends Controller
             return $this->errorResponse($e->getMessage(), 404);
         } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Maintenance Destroy Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to delete maintenance.', 500);

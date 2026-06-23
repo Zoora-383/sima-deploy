@@ -149,6 +149,10 @@ class ItemService
      */
     public function createItem(array $data, $file = null, User $currentUser): Item
     {
+        if ($currentUser->role->name !== 'admin') {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Only admins are allowed to create items.');
+        }
+
         $category = ItemCategory::where('uuid', $data['category_uuid'])->first();
 
         if (!$category) {
@@ -260,12 +264,16 @@ class ItemService
             throw new NotFoundHttpException('Item not found.');
         }
 
-        if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
+        if ($currentUser->role->name !== 'admin') {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Only admins are allowed to update items.');
+        }
+
+        if ($item->user_id !== $currentUser->id) {
             throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update this item.');
         }
 
-        if (in_array($item->status, ['active', 'maintenance'])) {
-            throw new Exception('Active or maintenance items cannot be edited.');
+        if (!in_array($item->status, ['draft', 'revision', 'pending_kasi', 'active'])) {
+            throw new Exception('Items cannot be edited at this stage.');
         }
 
         try {
@@ -288,6 +296,12 @@ class ItemService
             $needsNewCode = (isset($data['type']) && $data['type'] !== $item->type)
                 || (isset($data['category_uuid']) && $category->id !== $item->category_id);
 
+            $oldStatus = $item->status;
+            $newStatus = $item->status;
+            if ($oldStatus === 'pending_kasi') {
+                $newStatus = 'draft';
+            }
+
             $item->update([
                 'category_id' => $category->id,
                 'code_item'   => $needsNewCode
@@ -299,7 +313,12 @@ class ItemService
                 'image_item'  => $imagePath,
                 'location'    => $data['location']     ?? $item->location,
                 'description' => $data['description']  ?? $item->description,
+                'status'      => $newStatus,
             ]);
+
+            if ($oldStatus !== $newStatus) {
+                $this->recordLog($item, $oldStatus, $newStatus, 'Item updated and pulled back to draft', $currentUser->id);
+            }
 
             DB::commit();
             return $item->fresh(['user:id,username', 'category:id,name']);
@@ -328,12 +347,16 @@ class ItemService
             throw new NotFoundHttpException('Item not found.');
         }
 
-        if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
+        if ($currentUser->role->name !== 'admin') {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Only admins are allowed to delete items.');
+        }
+
+        if ($item->user_id !== $currentUser->id) {
             throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to delete this item.');
         }
 
-        if ($item->status === 'maintenance') {
-            throw new Exception('Item is in maintenance and cannot be deleted.');
+        if (!in_array($item->status, ['draft', 'revision', 'active'])) {
+            throw new Exception('Only draft, revision, or active items can be deleted or disposed.');
         }
 
         try {

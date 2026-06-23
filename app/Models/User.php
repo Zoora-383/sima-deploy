@@ -48,7 +48,7 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereUuid($value)
  * @mixin \Eloquent
  */
-#[Fillable(['uuid', 'role_id', 'email', 'username', 'password', 'is_active'])]
+#[Fillable(['uuid', 'role_id', 'email', 'username', 'password', 'is_active', 'force_password_change'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
 

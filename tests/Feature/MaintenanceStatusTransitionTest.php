@@ -171,8 +171,8 @@ class MaintenanceStatusTransitionTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage("Gagal membuat maintenance request: Hanya item dengan status active yang dapat diajukan untuk pemeliharaan.");
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Hanya item dengan status active yang dapat diajukan untuk pemeliharaan.");
 
         $this->maintenanceService->addMaintenance([
             'item_id' => $item->uuid,

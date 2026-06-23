@@ -15,14 +15,18 @@ class ItemCategoryStoreRequest extends FormRequest
         return true;
     }
 
-    /**
-     * Summary of rules
-     * @return array{name: string}
-     */
     public function rules(): array
     {
+        $categoryUuid = $this->route('uuid');
+
         return [
-            'name' => 'required|string'
+            'name' => [
+                'required',
+                'string',
+                $categoryUuid 
+                    ? 'unique:item_categories,name,' . $categoryUuid . ',uuid'
+                    : 'unique:item_categories,name'
+            ]
         ];
     }
 }

@@ -122,6 +122,10 @@ class MaintenanceService
      */
     public function addMaintenance(array $data, User $currentUser): MaintenanceRequest
     {
+        if ($currentUser->role->name !== 'admin') {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Only admins are allowed to create maintenance requests.');
+        }
+
         $uploadedUrls = [];
 
         try {
@@ -170,6 +174,12 @@ class MaintenanceService
             DB::commit();
 
             return $newMaintenance->load(['maintenanceItems', 'approvalLogs.user']);
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+
+            $this->cleanupUploadedFiles($uploadedUrls);
+
+            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
 
@@ -266,7 +276,11 @@ class MaintenanceService
             throw new NotFoundHttpException('Maintenance not found.');
         }
 
-        if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
+        if ($currentUser->role->name !== 'admin') {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Only admins are allowed to update maintenance requests.');
+        }
+
+        if ($maintenance->requester_id !== $currentUser->id) {
             throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update this maintenance request.');
         }
 
@@ -400,8 +414,20 @@ class MaintenanceService
             throw new NotFoundHttpException('Maintenance not found.');
         }
 
-        if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
+        if ($currentUser->role->name !== 'admin') {
+            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('Only admins are allowed to delete maintenance requests.');
+        }
+
+        if ($maintenance->requester_id !== $currentUser->id) {
             throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to delete this maintenance request.');
+        }
+
+        $allowedStatuses = ['draft', 'rejected'];
+        if (!in_array($maintenance->status, $allowedStatuses)) {
+            throw new \InvalidArgumentException(
+                "Pengajuan tidak dapat dihapus karena sedang dalam proses validasi atau pengerjaan "
+                    . "(Status saat ini: " . str_replace('_', ' ', $maintenance->status) . ")."
+            );
         }
 
         try {
