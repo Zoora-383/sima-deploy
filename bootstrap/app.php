@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ForcePasswordChangeMiddleware;
+use App\Http\Middleware\ParseMultipartPutRequest;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use Illuminate\Auth\AuthenticationException;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(ParseMultipartPutRequest::class);
         $middleware->append(SecurityHeadersMiddleware::class);
 
         $middleware->alias([

@@ -16,8 +16,6 @@ class ItemService
 {
     use RecordApprovalLog, SecureImageUpload;
 
-    // METHODS ITEMS CATEGORY
-
     /**
      * Create a new item category
      * @param array $data
@@ -382,19 +380,58 @@ class ItemService
             $statusTo = 'revision';
         }
 
+        // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting an item revised by kel_pust
+        if ($currentUser->role->name === 'admin' && $statusTo === 'pending_kasi') {
+            if ($statusFrom === 'revision') {
+                $lastRevisionLog = $item->approvalLogs()
+                    ->where('status_to', 'revision')
+                    ->orderByDesc('id')
+                    ->first();
+
+                $rejectedByKelPust = false;
+                if ($lastRevisionLog && $lastRevisionLog->user && $lastRevisionLog->user->role) {
+                    if ($lastRevisionLog->user->role->name === 'kel_pust') {
+                        $rejectedByKelPust = true;
+                    }
+                }
+
+                if ($rejectedByKelPust) {
+                    $statusTo = 'pending_pust';
+                }
+            }
+        }
+
         $roleTransitions = [
             'admin'    => [
                 'draft'    => ['pending_kasi'],
                 'revision' => ['pending_kasi'],
             ],
             'kasi'     => [
-                'draft'        => ['pending_pust'], // Kasi approves draft directly to next stage
+                'draft'        => ['pending_pust'],
                 'pending_kasi' => ['pending_pust', 'revision'],
             ],
             'kel_pust' => [
                 'pending_pust' => ['active', 'revision'],
             ],
         ];
+
+        if ($currentUser->role->name === 'admin' && $statusFrom === 'revision') {
+            $lastRevisionLog = $item->approvalLogs()
+                ->where('status_to', 'revision')
+                ->orderByDesc('id')
+                ->first();
+
+            $rejectedByKelPust = false;
+            if ($lastRevisionLog && $lastRevisionLog->user && $lastRevisionLog->user->role) {
+                if ($lastRevisionLog->user->role->name === 'kel_pust') {
+                    $rejectedByKelPust = true;
+                }
+            }
+
+            if ($rejectedByKelPust) {
+                $roleTransitions['admin']['revision'] = ['pending_pust'];
+            }
+        }
 
         $allowed = $roleTransitions[$currentUser->role->name][$statusFrom] ?? [];
 

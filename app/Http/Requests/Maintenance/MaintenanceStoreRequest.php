@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Maintenance;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class MaintenanceStoreRequest extends FormRequest
 {
@@ -20,7 +21,11 @@ class MaintenanceStoreRequest extends FormRequest
     {
         return [
             // Header
-            'item_id'                        => 'required|uuid|exists:items,uuid',
+            'item_id'                        => [
+                'required',
+                'uuid',
+                Rule::exists('items', 'uuid')->where('status', 'active'),
+            ],
             'title'                          => 'required|string|max:255',
             'priority'                       => 'required|in:high,medium,low',
             'type'                           => 'required|in:korektif,preventif',

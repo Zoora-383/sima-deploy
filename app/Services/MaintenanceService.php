@@ -135,6 +135,9 @@ class MaintenanceService
             DB::beginTransaction();
 
             $item            = Item::where('uuid', $data['item_id'])->firstOrFail();
+            if ($item->status !== 'active') {
+                throw new \InvalidArgumentException("Hanya item dengan status active yang dapat diajukan untuk pemeliharaan.");
+            }
             $nomorPengajuan  = $this->generateNomorPengajuan();
 
             $newMaintenance = MaintenanceRequest::create([
@@ -425,10 +428,6 @@ class MaintenanceService
         }
     }
 
-    // =========================================================================
-    // UPDATE STATUS + SPK
-    // =========================================================================
-
     /**
      * Update status maintenance sesuai role dan alur persetujuan.
      */
@@ -454,6 +453,27 @@ class MaintenanceService
             }
         }
 
+        // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting a request rejected by kel_pust
+        if ($currentUser->role->name === 'admin' && $statusTo === 'pending_kasi') {
+            if ($statusFrom === 'rejected') {
+                $lastRejectedLog = $maintenance->approvalLogs()
+                    ->where('status_to', 'rejected')
+                    ->orderByDesc('id')
+                    ->first();
+
+                $rejectedByKelPust = false;
+                if ($lastRejectedLog && $lastRejectedLog->user && $lastRejectedLog->user->role) {
+                    if ($lastRejectedLog->user->role->name === 'kel_pust') {
+                        $rejectedByKelPust = true;
+                    }
+                }
+
+                if ($rejectedByKelPust) {
+                    $statusTo = 'pending_pust';
+                }
+            }
+        }
+
         if ($statusFrom === $statusTo) {
             throw new \InvalidArgumentException("Status baru tidak boleh sama dengan status saat ini.");
         }
@@ -473,6 +493,24 @@ class MaintenanceService
                 'pending_pust' => ['in_progress',  'rejected']
             ],
         ];
+
+        if ($currentUser->role->name === 'admin' && $statusFrom === 'rejected') {
+            $lastRejectedLog = $maintenance->approvalLogs()
+                ->where('status_to', 'rejected')
+                ->orderByDesc('id')
+                ->first();
+
+            $rejectedByKelPust = false;
+            if ($lastRejectedLog && $lastRejectedLog->user && $lastRejectedLog->user->role) {
+                if ($lastRejectedLog->user->role->name === 'kel_pust') {
+                    $rejectedByKelPust = true;
+                }
+            }
+
+            if ($rejectedByKelPust) {
+                $roleTransitions['admin']['rejected'] = ['pending_pust'];
+            }
+        }
 
         $roleName = $currentUser->role->name;
         $allowed = $roleTransitions[$roleName][$statusFrom] ?? [];
