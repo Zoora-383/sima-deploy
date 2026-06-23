@@ -128,4 +128,78 @@ class ItemStatusTransitionTest extends TestCase
 
         $this->assertEquals('pending_kasi', $updated->status);
     }
+
+    public function test_controller_update_status_validation_invalid_transition_returns_422(): void
+    {
+        $adminRole = Role::create(['uuid' => Str::uuid()->toString(), 'name' => 'admin']);
+        $adminUser = User::create([
+            'uuid' => Str::uuid()->toString(),
+            'role_id' => $adminRole->id,
+            'email' => 'admin@test.com',
+            'username' => 'admin',
+            'password' => bcrypt('password'),
+            'is_active' => 1,
+        ]);
+
+        $category = ItemCategory::create(['uuid' => Str::uuid()->toString(), 'name' => 'Electronic']);
+        $item = Item::create([
+            'uuid' => Str::uuid()->toString(),
+            'category_id' => $category->id,
+            'user_id' => $adminUser->id,
+            'code_item' => 'LOG-ELE-001',
+            'name' => 'Laptop Dell',
+            'type' => 'logistic',
+            'status' => 'draft',
+        ]);
+
+        $response = $this->withoutMiddleware([
+            \App\Http\Middleware\JwtCheckMiddleware::class,
+            \App\Http\Middleware\ForcePasswordChangeMiddleware::class,
+            \App\Http\Middleware\RoleMiddleware::class
+        ])
+        ->actingAs($adminUser, 'api')
+        ->patchJson("/api/v1/items/{$item->uuid}/status", [
+            'status' => 'active',
+            'note' => 'Invalid attempt'
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'status' => 'error',
+            'message' => 'Anda tidak memiliki izin untuk melakukan transisi status ini.'
+        ]);
+    }
+
+    public function test_controller_update_status_item_not_found_returns_404(): void
+    {
+        $adminRole = Role::create(['uuid' => Str::uuid()->toString(), 'name' => 'admin']);
+        $adminUser = User::create([
+            'uuid' => Str::uuid()->toString(),
+            'role_id' => $adminRole->id,
+            'email' => 'admin@test.com',
+            'username' => 'admin',
+            'password' => bcrypt('password'),
+            'is_active' => 1,
+        ]);
+
+        $nonExistentUuid = (string) Str::uuid();
+
+        $response = $this->withoutMiddleware([
+            \App\Http\Middleware\JwtCheckMiddleware::class,
+            \App\Http\Middleware\ForcePasswordChangeMiddleware::class,
+            \App\Http\Middleware\RoleMiddleware::class
+        ])
+        ->actingAs($adminUser, 'api')
+        ->patchJson("/api/v1/items/{$nonExistentUuid}/status", [
+            'status' => 'pending_kasi',
+            'note' => 'Valid transition but invalid uuid'
+        ]);
+
+        $response->assertStatus(404);
+        $response->assertJson([
+            'status' => 'error',
+            'message' => 'Item not found.'
+        ]);
+    }
 }
+

@@ -12,6 +12,7 @@ use App\Services\ItemService;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 // use Illuminate\Http\Request;
 
@@ -72,6 +73,8 @@ class ItemController extends Controller
                 ['item' => new ItemDetailResource($item)],
                 'Get detail item successfully'
             );
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
@@ -87,6 +90,8 @@ class ItemController extends Controller
             $message = $this->itemService->deleteItem($uuid, $currentUser);
 
             return $this->successResponse(null, $message);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
@@ -106,6 +111,8 @@ class ItemController extends Controller
                 ['item' => new ItemResource($item)],
                 'Updated item successfully'
             );
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
@@ -124,8 +131,12 @@ class ItemController extends Controller
                 ['item' => new ItemDetailResource($item)],
                 'Updated item status successfully'
             );
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Item Update Status Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to update item status.');
