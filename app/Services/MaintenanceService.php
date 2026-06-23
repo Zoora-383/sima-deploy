@@ -447,6 +447,13 @@ class MaintenanceService
         $statusFrom = $maintenance->status;
         $statusTo   = $data['status'];
 
+        // Map 'pending_kasi' to 'pending_pust' for role 'kasi' when current status is 'draft' or 'rejected'
+        if ($currentUser->role->name === 'kasi' && $statusTo === 'pending_kasi') {
+            if ($statusFrom === 'draft' || $statusFrom === 'rejected') {
+                $statusTo = 'pending_pust';
+            }
+        }
+
         if ($statusFrom === $statusTo) {
             throw new \InvalidArgumentException("Status baru tidak boleh sama dengan status saat ini.");
         }
@@ -459,6 +466,7 @@ class MaintenanceService
             ],
             'kasi'     => [
                 'draft'        => ['pending_pust'],
+                'rejected'     => ['pending_pust'],
                 'pending_kasi' => ['pending_pust', 'rejected']
             ],
             'kel_pust' => [
