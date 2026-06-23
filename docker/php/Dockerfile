@@ -33,7 +33,3 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction \
 
 # Allow PHP-FPM workers to inherit container environment variables (e.g. from k8s secrets)
 RUN printf "[www]\nclear_env = no\n" > /usr/local/etc/php-fpm.d/zzz-clear-env.conf
-
-RUN apt-get update && apt-get install -y libpng-dev libjpeg-dev libwebp-dev \
-        && docker-php-ext-configure gd --with-jpeg --with-webp \
-        && docker-php-ext-install gd
