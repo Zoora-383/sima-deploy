@@ -4,13 +4,10 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Models\User;
-// use App\Traits\CloudinaryUpload;
 use App\Traits\SecureImageUpload;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -18,7 +15,6 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class UserService
 {
     use SecureImageUpload;
-    // use CloudinaryUpload;
 
     // SUPER ADMIN METHOD USER MANAGEMENT
 
@@ -67,8 +63,9 @@ class UserService
     }
 
     /**
-     * @return $user
+     * Summary of getAllUser
      * @throws Exception
+     * @return \Illuminate\Pagination\LengthAwarePaginator
      */
     public function getAllUser()
     {

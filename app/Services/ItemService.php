@@ -2,16 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\ApprovalLog;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
 use App\Traits\RecordApprovalLog;
 use App\Traits\SecureImageUpload;
 use Exception;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -212,11 +209,13 @@ class ItemService
     }
 
     /**
-     * Get detailed information of an item
+     * Summary of getDetailItem
      * @param string $itemUuid
      * @param User $currentUser
-     * @return Item
-     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
+     * @throws NotFoundHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * @throws Exception
+     * @return Item|\stdClass
      */
     public function getDetailItem(string $itemUuid, User $currentUser): Item
     {
@@ -245,13 +244,15 @@ class ItemService
     }
 
     /**
-     * Update an existing item
+     * Summary of updateItem
      * @param string $itemUuid
      * @param array $data
      * @param mixed $file
      * @param User $currentUser
-     * @return Item
-     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
+     * @throws NotFoundHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * @throws Exception
+     * @return Item|\Eloquent|null
      */
     public function updateItem(string $itemUuid, array $data, $file = null, User $currentUser): Item
     {
@@ -313,11 +314,13 @@ class ItemService
     }
 
     /**
-     * Delete an item
+     * Summary of deleteItem
      * @param string $itemUuid
      * @param User $currentUser
+     * @throws NotFoundHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * @throws Exception
      * @return string
-     * @throws NotFoundHttpException|AccessDeniedHttpException|Exception
      */
     public function deleteItem(string $itemUuid, User $currentUser): string
     {
@@ -354,10 +357,10 @@ class ItemService
      * @param array $data
      * @param User $currentUser
      * @throws NotFoundHttpException
-     * @throws AccessDeniedHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
      * @throws \InvalidArgumentException
      * @throws Exception
-     * @return Item|null
+     * @return Item|\Eloquent|null
      */
     public function updateStatus(string $itemUuid, array $data, User $currentUser): Item
     {

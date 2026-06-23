@@ -454,10 +454,11 @@ class MaintenanceService
         $roleTransitions = [
             'admin' => [
                 'draft'        => ['pending_kasi'],
-                'rejected'     => ['pending_kasi'], // Allow resubmission after rejection/revision
+                'rejected'     => ['pending_kasi'],
                 'in_progress'  => ['done'],
             ],
             'kasi'     => [
+                'draft'        => ['pending_pust'],
                 'pending_kasi' => ['pending_pust', 'rejected']
             ],
             'kel_pust' => [
@@ -465,8 +466,6 @@ class MaintenanceService
             ],
         ];
 
-        // Super Admin can bypass transitions if needed, or add them here.
-        // For now, follow the strict flow.
         $roleName = $currentUser->role->name;
         $allowed = $roleTransitions[$roleName][$statusFrom] ?? [];
 
@@ -479,8 +478,6 @@ class MaintenanceService
         try {
             DB::beginTransaction();
 
-            // --- AUTOMATION: SPK CREATION ---
-            // Triggered when Kel_Pust approves to in_progress
             if ($statusTo === 'in_progress' && $statusFrom === 'pending_pust') {
                 $this->spkService->addSPK([
                     'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif']  ?? now()->toDateString(),
