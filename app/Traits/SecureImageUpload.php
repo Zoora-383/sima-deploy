@@ -22,36 +22,38 @@ trait SecureImageUpload
         $tempFile = tempnam(sys_get_temp_dir(), 'secure_upload');
         $reEncoded = false;
 
-        // Load and re-encode image based on extension using GD
-        switch ($extension) {
-            case 'jpeg':
-            case 'jpg':
-                $source = @imagecreatefromjpeg($file->getRealPath());
-                if ($source) {
-                    imagejpeg($source, $tempFile, 85);
-                    imagedestroy($source);
-                    $reEncoded = true;
-                }
-                break;
-            case 'png':
-                $source = @imagecreatefrompng($file->getRealPath());
-                if ($source) {
-                    imagepalettetotruecolor($source);
-                    imagealphablending($source, false);
-                    imagesavealpha($source, true);
-                    imagepng($source, $tempFile, 6);
-                    imagedestroy($source);
-                    $reEncoded = true;
-                }
-                break;
-            case 'webp':
-                $source = @imagecreatefromwebp($file->getRealPath());
-                if ($source) {
-                    imagewebp($source, $tempFile, 80);
-                    imagedestroy($source);
-                    $reEncoded = true;
-                }
-                break;
+        // Load and re-encode image based on extension using GD if GD extension is loaded
+        if (extension_loaded('gd')) {
+            switch ($extension) {
+                case 'jpeg':
+                case 'jpg':
+                    $source = @imagecreatefromjpeg($file->getRealPath());
+                    if ($source) {
+                        imagejpeg($source, $tempFile, 85);
+                        imagedestroy($source);
+                        $reEncoded = true;
+                    }
+                    break;
+                case 'png':
+                    $source = @imagecreatefrompng($file->getRealPath());
+                    if ($source) {
+                        imagepalettetotruecolor($source);
+                        imagealphablending($source, false);
+                        imagesavealpha($source, true);
+                        imagepng($source, $tempFile, 6);
+                        imagedestroy($source);
+                        $reEncoded = true;
+                    }
+                    break;
+                case 'webp':
+                    $source = @imagecreatefromwebp($file->getRealPath());
+                    if ($source) {
+                        imagewebp($source, $tempFile, 80);
+                        imagedestroy($source);
+                        $reEncoded = true;
+                    }
+                    break;
+            }
         }
 
         $filename = Str::uuid() . '.' . $extension;
@@ -60,8 +62,11 @@ trait SecureImageUpload
             $path = Storage::disk($disk)->putFileAs($folder, new File($tempFile), $filename, 'public');
             unlink($tempFile);
         } else {
-            // Fallback to original file if re-encoding fails
+            // Fallback to original file if re-encoding fails or GD is not installed
             $path = Storage::disk($disk)->putFileAs($folder, $file, $filename, 'public');
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
         }
 
         return Storage::disk($disk)->url($path);
