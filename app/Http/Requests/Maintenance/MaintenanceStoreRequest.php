@@ -24,7 +24,7 @@ class MaintenanceStoreRequest extends FormRequest
             'item_id'                        => [
                 'required',
                 'uuid',
-                Rule::exists('items', 'uuid')->where('status', 'active'),
+                Rule::exists('items', 'uuid'),
             ],
             'title'                          => 'required|string|max:255',
             'priority'                       => 'required|in:high,medium,low',

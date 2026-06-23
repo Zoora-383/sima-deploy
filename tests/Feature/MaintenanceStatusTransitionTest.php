@@ -247,4 +247,54 @@ class MaintenanceStatusTransitionTest extends TestCase
 
         $this->assertEquals('pending_pust', $updated->status);
     }
+
+    public function test_validation_fails_with_asset_not_found_when_item_does_not_exist(): void
+    {
+        $request = new \App\Http\Requests\Maintenance\MaintenanceStoreRequest();
+        
+        $validator = \Illuminate\Support\Facades\Validator::make([
+            'item_id' => (string) Str::uuid(),
+            'title' => 'Fix Keyboard',
+            'priority' => 'medium',
+            'type' => 'korektif',
+        ], $request->rules(), $request->messages());
+
+        $this->assertTrue($validator->fails());
+        $this->assertEquals('Aset tidak ditemukan.', $validator->errors()->first('item_id'));
+    }
+
+    public function test_validation_passes_when_item_exists_regardless_of_status(): void
+    {
+        $adminRole = Role::create(['uuid' => Str::uuid()->toString(), 'name' => 'admin']);
+        $adminUser = User::create([
+            'uuid' => Str::uuid()->toString(),
+            'role_id' => $adminRole->id,
+            'email' => 'admin@test.com',
+            'username' => 'admin',
+            'password' => bcrypt('password'),
+            'is_active' => 1,
+        ]);
+        $category = ItemCategory::create(['uuid' => Str::uuid()->toString(), 'name' => 'Electronic']);
+        $item = Item::create([
+            'uuid' => Str::uuid()->toString(),
+            'category_id' => $category->id,
+            'user_id' => $adminUser->id,
+            'code_item' => 'LOG-ELE-001',
+            'name' => 'Laptop Dell',
+            'type' => 'logistic',
+            'status' => 'draft', // not active
+        ]);
+
+        $request = new \App\Http\Requests\Maintenance\MaintenanceStoreRequest();
+        
+        $validator = \Illuminate\Support\Facades\Validator::make([
+            'item_id' => $item->uuid,
+            'title' => 'Fix Keyboard',
+            'priority' => 'medium',
+            'type' => 'korektif',
+        ], $request->rules(), $request->messages());
+
+        $this->assertFalse($validator->fails());
+    }
 }
+

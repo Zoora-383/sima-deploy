@@ -172,7 +172,8 @@ class MaintenanceController extends Controller
     public function updateRekap(MaintenanceRekapRequest $request, string $uuid)
     {
         try {
-            $maintenance = $this->maintenanceService->getDetailMaintenance($uuid);
+            $currentUser = auth('api')->user();
+            $maintenance = $this->maintenanceService->getDetailMaintenance($uuid, $currentUser);
             $spk = \App\Models\SPK::where('maintenance_id', $maintenance->id)->first();
 
             if (!$spk) {
