@@ -33,7 +33,7 @@ class SPKResource extends JsonResource
             'disetujui_oleh' => $latestApproval && $latestApproval->user ? [
                 'username' => $latestApproval->user->username,
                 'email'    => $latestApproval->user->email,
-                'status'   => $latestApproval->status, 
+                'status'   => $latestApproval->status_to, 
                 'note'     => $latestApproval->note,
                 'tanggal_setuju' => $latestApproval->created_at,
             ] : null,

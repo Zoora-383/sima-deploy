@@ -109,10 +109,6 @@ class MaintenanceService
         }
     }
 
-    // =========================================================================
-    // CREATE
-    // =========================================================================
-
     /**
      * Summary of addMaintenance
      * @param array $data
@@ -189,10 +185,6 @@ class MaintenanceService
         }
     }
 
-    // =========================================================================
-    // READ
-    // =========================================================================
-
     /**
      * Get all maintenance requests
      * @param User $currentUser
@@ -250,10 +242,6 @@ class MaintenanceService
             throw new Exception("Gagal mengambil detail maintenance: " . $e->getMessage());
         }
     }
-
-    // =========================================================================
-    // UPDATE — Header + Items
-    // =========================================================================
 
     /**
      * Update maintenance request
@@ -391,10 +379,6 @@ class MaintenanceService
         }
     }
 
-    // =========================================================================
-    // DELETE
-    // =========================================================================
-
     /**
      * Hapus maintenance request beserta file S3 item-itemnya.
      * @param string $maintenanceUuid
@@ -455,7 +439,15 @@ class MaintenanceService
     }
 
     /**
-     * Update status maintenance sesuai role dan alur persetujuan.
+     * Summary of updateStatus
+     * @param string $maintenanceUuid
+     * @param array $data
+     * @param User $currentUser
+     * @throws NotFoundHttpException
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * @throws \InvalidArgumentException
+     * @throws Exception
+     * @return MaintenanceRequest|\Eloquent|null
      */
     public function updateStatus(string $maintenanceUuid, array $data, User $currentUser): MaintenanceRequest
     {
@@ -555,17 +547,22 @@ class MaintenanceService
                     'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif']  ?? now()->toDateString(),
                     'tanggal_selesai_target'  => $data['tanggal_selesai_target'] ?? now()->addDays(7)->toDateString(),
                     'pagu_anggaran_disetujui' => $data['pagu_anggaran_disetujui'] ?? 0,
-                    'note'                    => $data['note'] ?? 'SPK otomatis dibuat oleh sistem saat persetujuan Kepala Pustakawan.'
+                    'note'                    => $data['note'] ?? 'SPK otomatis dibuat oleh sistem saat persetujuan Kepala PUSTIKOM.'
                 ], $currentUser, $maintenance->uuid);
             }
 
-            $maintenance->update(['status' => $statusTo]);
+            // Refresh model status to check if it was already updated by SPK auto-transition
+            $maintenance->refresh();
 
-            $logNote = $data['note']
-                ?? "Status diubah dari " . str_replace('_', ' ', $statusFrom)
-                . " menjadi " . str_replace('_', ' ', $statusTo);
+            if ($maintenance->status !== $statusTo) {
+                $maintenance->update(['status' => $statusTo]);
 
-            $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
+                $logNote = $data['note']
+                    ?? "Status diubah dari " . str_replace('_', ' ', $statusFrom)
+                    . " menjadi " . str_replace('_', ' ', $statusTo);
+
+                $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
+            }
 
             // --- AUTOMATION: REKAP CREATION ---
             // Triggered when Admin finishes to done
@@ -585,7 +582,11 @@ class MaintenanceService
         }
     }
 
-    // Method rekaps for maintenance
+    /**
+     * Summary of getAllRekaps
+     * @throws Exception
+     * @return \Illuminate\Database\Eloquent\Collection<int, MaintenanceRekap>|\Illuminate\Support\Collection<int, \stdClass>
+     */
     public function getAllRekaps()
     {
         try {
@@ -595,6 +596,12 @@ class MaintenanceService
         }
     }
 
+    /**
+     * Summary of getRekapDetail
+     * @param string $rekapUuid
+     * @throws NotFoundHttpException
+     * @return MaintenanceRekap|\stdClass
+     */
     public function getRekapDetail(string $rekapUuid)
     {
         $rekap = MaintenanceRekap::with(['spk.maintenance.item', 'attachments'])
@@ -608,6 +615,13 @@ class MaintenanceService
         return $rekap;
     }
 
+    /**
+     * Summary of deleteRekap
+     * @param string $rekapUuid
+     * @throws NotFoundHttpException
+     * @throws Exception
+     * @return MaintenanceRekap|TValue|\Eloquent|\stdClass
+     */
     public function deleteRekap(string $rekapUuid)
     {
         $rekap = MaintenanceRekap::where('uuid', $rekapUuid)->first();
@@ -624,9 +638,17 @@ class MaintenanceService
         }
     }
 
+    /**
+     * Summary of addRekapsMaintenance
+     * @param array $data
+     * @param string $spkUuid
+     * @throws NotFoundHttpException
+     * @throws Exception
+     * @return MaintenanceRekap|TModel|TValue|\Eloquent|\stdClass
+     */
     public function addRekapsMaintenance(array $data, string $spkUuid)
     {
-        $spk = SPK::where('uuid', $spkUuid)->first();
+        $spk = SPK::with('maintenance')->where('uuid', $spkUuid)->first();
 
         if (!$spk) {
             throw new NotFoundHttpException('Surat kerja yang selesai gagal ditemukan');
@@ -649,6 +671,24 @@ class MaintenanceService
                 $rekaps = MaintenanceRekap::create($payload);
             } else {
                 $rekaps->update($payload);
+            }
+
+            // Auto-transition associated maintenance request status to 'done'
+            $maintenance = $spk->maintenance;
+            if ($maintenance && $maintenance->status !== 'done') {
+                $statusFrom = $maintenance->status;
+                $maintenance->update(['status' => 'done']);
+
+                $currentUser = auth('api')->user();
+                $userId = $currentUser ? $currentUser->id : $maintenance->requester_id;
+
+                $this->recordLog(
+                    $maintenance,
+                    $statusFrom,
+                    'done',
+                    $data['note'] ?? 'Status otomatis diubah ke done setelah rekapitulasi disubmit.',
+                    $userId
+                );
             }
 
             return $rekaps;

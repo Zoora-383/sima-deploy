@@ -46,4 +46,17 @@ class SPK extends Model
     {
         return $this->morphMany(ApprovalLog::class, 'approvable');
     }
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'tanggal_mulai_efektif'  => 'date',
+            'tanggal_selesai_target' => 'date',
+        ];
+    }
 }

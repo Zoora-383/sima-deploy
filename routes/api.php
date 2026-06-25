@@ -82,6 +82,7 @@ Route::prefix('v1')->group(function () {
         // --- SPK (SURAT PERINTAH KERJA) ---
         Route::get('/spk', [SpkController::class, 'index']);
         Route::get('/spk/{uuid}', [SpkController::class, 'show']);
+        Route::get('/spk/{uuid}/pdf', [SpkController::class, 'exportPdf']);
         Route::middleware('role:admin,kel_pust')->group(function () {
             Route::post('/spk', [SpkController::class, 'store']);
             Route::patch('/spk/{uuid}', [SpkController::class, 'update']);

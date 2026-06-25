@@ -16,27 +16,13 @@ class ParseMultipartPutRequest
      */
     public function handle(Request $request, Closure $next): Response
     {
-        \Illuminate\Support\Facades\Log::info('ParseMultipartPutRequest executing:', [
-            'method' => $request->method(),
-            'real_method' => $request->getRealMethod(),
-            'content_type' => $request->header('Content-Type'),
-            'has_files_initially' => !empty($request->allFiles()),
-        ]);
-
         if ($request->isMethod('PUT') || $request->isMethod('PATCH')) {
             if (!empty($request->allFiles())) {
-                \Illuminate\Support\Facades\Log::info('ParseMultipartPutRequest files already present. Enabling test mode.');
                 $enabledFiles = $this->enableTestMode($request->files->all());
                 $request->files->replace($enabledFiles);
             } elseif (str_contains($request->header('Content-Type', ''), 'multipart/form-data')) {
                 try {
-                    \Illuminate\Support\Facades\Log::info('ParseMultipartPutRequest entering parsing block.');
                     [$post, $files] = request_parse_body();
-
-                    \Illuminate\Support\Facades\Log::info('ParseMultipartPutRequest body parsed successfully:', [
-                        'post_keys' => array_keys($post),
-                        'files_keys' => array_keys($files),
-                    ]);
 
                     // Merge the parsed body parameters into the Laravel request input
                     $request->merge($post);
@@ -45,10 +31,6 @@ class ParseMultipartPutRequest
                     $fileBag = new FileBag($files);
                     $enabledFiles = $this->enableTestMode($fileBag->all());
                     $request->files->add($enabledFiles);
-
-                    \Illuminate\Support\Facades\Log::info('ParseMultipartPutRequest files added to request:', [
-                        'files_added' => array_keys($enabledFiles),
-                    ]);
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('ParseMultipartPutRequest exception:', [
                         'message' => $e->getMessage(),

@@ -40,4 +40,17 @@ class MaintenanceRekap extends Model
     {
         return $this->morphMany(Attachment::class, 'attachable');
     }
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'tanggal_selesai_aktual'      => 'date',
+            'jadwal_preventif_berikutnya' => 'date',
+        ];
+    }
 }

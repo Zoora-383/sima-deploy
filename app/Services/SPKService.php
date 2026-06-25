@@ -93,6 +93,18 @@ class SPKService
                 $currentUser->id
             );
 
+            // Auto-transition associated maintenance request status to 'in_progress'
+            if ($maintenance->status === 'pending_pust') {
+                $maintenance->update(['status' => 'in_progress']);
+                $this->recordLog(
+                    $maintenance,
+                    'pending_pust',
+                    'in_progress',
+                    $data['note'] ?? 'Status otomatis diubah ke in progress karena SPK telah diterbitkan.',
+                    $currentUser->id
+                );
+            }
+
             DB::commit();
 
             return $newSpk->load('approvalLogs.user');
@@ -173,6 +185,43 @@ class SPKService
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Failed to update SPK: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate PDF stream for the SPK.
+     * 
+     * @param string $spkUuid
+     * @return string
+     * @throws NotFoundHttpException
+     * @throws Exception
+     */
+    public function generateSpkPdf(string $spkUuid)
+    {
+        $spk = SPK::with(['maintenance.item.category', 'maintenance.requester.userProfile', 'approvalLogs.user.userProfile'])
+            ->where('uuid', $spkUuid)
+            ->first();
+
+        if (!$spk) {
+            throw new NotFoundHttpException('SPK tidak ditemukan.');
+        }
+
+        // Get the name of the Kepala UPT TIK who approved the SPK
+        $approverLog = $spk->approvalLogs()
+            ->where('status_to', 'approved')
+            ->orderBy('id', 'desc')
+            ->first();
+        $approverName = $approverLog?->user?->userProfile?->fullname ?? 'Kepala UPT TIK';
+
+        try {
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.spk', [
+                'spk' => $spk,
+                'approverName' => $approverName,
+            ])->setOption('isRemoteEnabled', true);
+
+            return $pdf->output();
+        } catch (Exception $e) {
+            throw new Exception("Gagal menghasilkan dokumen PDF SPK: " . $e->getMessage());
         }
     }
 }

@@ -66,4 +66,16 @@ class MaintenanceRequest extends Model
     {
         return $this->morphMany(ApprovalLog::class, 'approvable');
     }
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'target_completion_expectations' => 'date',
+        ];
+    }
 }

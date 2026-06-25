@@ -109,4 +109,20 @@ class SpkController extends Controller
             return $this->errorResponse('Gagal memuat daftar SPK.');
         }
     }
+
+    public function exportPdf(string $uuid)
+    {
+        try {
+            $pdfStream = $this->SPKService->generateSpkPdf($uuid);
+
+            return response($pdfStream, 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="spk-' . $uuid . '.pdf"');
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (Exception $e) {
+            Log::error('SPK PDF Export Error: ' . $e->getMessage());
+            return $this->errorResponse('Gagal mengunduh dokumen SPK.', 500);
+        }
+    }
 }
