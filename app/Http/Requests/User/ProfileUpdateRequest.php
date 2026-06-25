@@ -23,6 +23,14 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
+        \Illuminate\Support\Facades\Log::info('Avatar upload check:', [
+            'has_file' => $this->hasFile('avatar'),
+            'file_instance' => $this->file('avatar') ? get_class($this->file('avatar')) : null,
+            'error_code' => $this->file('avatar')?->getError(),
+            'error_message' => $this->file('avatar')?->getErrorMessage(),
+            'is_valid' => $this->file('avatar')?->isValid(),
+        ]);
+
         // Mengambil ID user yang sedang login via API Guard
         $userId = auth('api')->id(); 
 
@@ -45,7 +53,7 @@ class ProfileUpdateRequest extends FormRequest
             'fullname' => 'sometimes|nullable|string|max:255',
             'phone'    => 'sometimes|nullable|string|max:20',
             'location' => 'sometimes|nullable|string',
-            'avatar'   => 'sometimes|nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // Tambahkan validasi avatar di sini
+            'avatar'   => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // Tambahkan validasi avatar di sini
         ];
     }
 }
