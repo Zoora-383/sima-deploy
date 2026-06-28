@@ -56,7 +56,7 @@ class MaintenanceManipulationTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_update_and_delete_maintenance_in_draft_or_rejected_status(): void
+    public function test_admin_can_update_and_delete_maintenance_in_draft_or_revision_status(): void
     {
         // 1. Create Maintenance in Draft
         $maintenance = MaintenanceRequest::create([
@@ -89,11 +89,11 @@ class MaintenanceManipulationTest extends TestCase
             'priority' => 'high',
         ]);
 
-        // 3. Update Maintenance (Rejected)
-        $maintenance->update(['status' => 'rejected']);
+        // 3. Update Maintenance (Revision)
+        $maintenance->update(['status' => 'revision']);
         $response2 = $this->withHeader('Authorization', 'Bearer ' . $this->adminToken)
             ->putJson("/api/v1/maintenance/{$maintenance->uuid}", [
-                'title' => 'Updated Title Rejected',
+                'title' => 'Updated Title Revision',
                 'priority' => 'high',
                 'type' => 'korektif',
                 'description' => 'Updated Description',
@@ -103,10 +103,10 @@ class MaintenanceManipulationTest extends TestCase
         $response2->assertStatus(200);
         $this->assertDatabaseHas('maintenance_requests', [
             'uuid' => $maintenance->uuid,
-            'title' => 'Updated Title Rejected',
+            'title' => 'Updated Title Revision',
         ]);
 
-        // 4. Delete Maintenance (Rejected)
+        // 4. Delete Maintenance (Revision)
         $response3 = $this->withHeader('Authorization', 'Bearer ' . $this->adminToken)
             ->deleteJson("/api/v1/maintenance/{$maintenance->uuid}");
 

@@ -18,7 +18,14 @@ class RoleMiddleware
     {
         $user = auth('api')->user();
 
-        if(!$user || !in_array($user->role->name ?? '', $roles)) {
+        if (!$user) {
+            throw new AccessDeniedHttpException('Anda tidak memiliki hak akses untuk tindakan ini.');
+        }
+
+        // Eager load role to avoid N+1 query
+        $user->load('role');
+
+        if (!in_array($user->role->name ?? '', $roles)) {
             throw new AccessDeniedHttpException('Anda tidak memiliki hak akses untuk tindakan ini.');
         }
 

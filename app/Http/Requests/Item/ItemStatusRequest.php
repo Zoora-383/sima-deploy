@@ -11,7 +11,8 @@ class ItemStatusRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $user = auth('api')->user();
+        return $user && in_array($user->role->name, ['admin', 'kasi', 'kel_pust']);
     }
 
     /**

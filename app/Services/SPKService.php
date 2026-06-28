@@ -11,6 +11,7 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class SPKService
@@ -114,18 +115,25 @@ class SPKService
         }
     }
 
-    public function getAllSPK()
+    public function getAllSPK(User $currentUser)
     {
         try {
-            return SPK::with('approvalLogs.user')
-                ->latest()
-                ->get();
+            $query = SPK::with('approvalLogs.user')->latest();
+
+            // Scope filtering: admin hanya melihat SPK dari maintenance miliknya sendiri
+            if ($currentUser->role->name === 'admin') {
+                $query->whereHas('maintenance', function ($q) use ($currentUser) {
+                    $q->where('requester_id', $currentUser->id);
+                });
+            }
+
+            return $query->paginate(10);
         } catch (Exception $e) {
             throw new Exception("Failed to get all SPK: " . $e->getMessage());
         }
     }
 
-    public function getDetailSpk(string $spkUuid)
+    public function getDetailSpk(string $spkUuid, User $currentUser)
     {
         $spkDetail = SPK::with(['maintenance', 'approvalLogs.user'])
             ->where('uuid', $spkUuid)
@@ -135,6 +143,13 @@ class SPKService
             throw new NotFoundHttpException('SPK tidak ditemukan.');
         }
 
+        // Scope filtering: admin hanya bisa lihat SPK milik sendiri
+        if ($currentUser->role->name === 'admin') {
+            if ($spkDetail->maintenance && $spkDetail->maintenance->requester_id !== $currentUser->id) {
+                throw new AccessDeniedHttpException('Anda tidak memiliki akses ke SPK ini.');
+            }
+        }
+
         try {
             return $spkDetail;
         } catch (Exception $e) {
@@ -142,12 +157,23 @@ class SPKService
         }
     }
 
-    public function deleteSpk(string $SpkUuid)
+    public function deleteSpk(string $SpkUuid, User $currentUser)
     {
         $spkDetail = SPK::where('uuid', $SpkUuid)->first();
 
         if (!$spkDetail) {
             throw new NotFoundHttpException('Spk not found.');
+        }
+
+        // Authorization check: hanya admin atau kel_pust
+        if (!in_array($currentUser->role->name, ['admin', 'kel_pust'])) {
+            throw new AccessDeniedHttpException('Anda tidak berhak menghapus SPK.');
+        }
+
+        // Status check: hanya bisa hapus jika maintenance masih draft atau revision
+        $maintenance = $spkDetail->maintenance;
+        if ($maintenance && !in_array($maintenance->status, ['draft', 'revision'])) {
+            throw new AccessDeniedHttpException('SPK hanya dapat dihapus jika status maintenance masih draft atau revision.');
         }
 
         try {
@@ -159,12 +185,17 @@ class SPKService
         }
     }
 
-    public function updateSpk(array $data, string $spkUuid)
+    public function updateSpk(array $data, string $spkUuid, User $currentUser)
     {
         $spk = SPK::where('uuid', $spkUuid)->first();
 
         if (!$spk) {
             throw new NotFoundHttpException('SPK tidak ditemukan.');
+        }
+
+        // Authorization check: hanya admin atau kel_pust
+        if (!in_array($currentUser->role->name, ['admin', 'kel_pust'])) {
+            throw new AccessDeniedHttpException('Anda tidak berhak mengubah SPK.');
         }
 
         try {

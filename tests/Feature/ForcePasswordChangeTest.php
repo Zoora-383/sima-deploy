@@ -72,7 +72,7 @@ class ForcePasswordChangeTest extends TestCase
         // 7. User changes password using the appropriate route
         $changePasswordResponse = $this->withHeader('Authorization', 'Bearer ' . $userToken)
             ->postJson('/api/v1/auth/change-password', [
-                'password' => 'newpassword123',
+                'password' => 'Newpassword123',
             ]);
 
         $changePasswordResponse->assertStatus(200);

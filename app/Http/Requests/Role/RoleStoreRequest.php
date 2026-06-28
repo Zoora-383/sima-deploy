@@ -11,7 +11,8 @@ class RoleStoreRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $user = auth('api')->user();
+        return $user && $user->role->name === 'super-admin';
     }
 
     /**

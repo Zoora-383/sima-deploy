@@ -154,6 +154,17 @@ class AuthService
             return DB::transaction(function () use ($guard) {
                 $oldToken = $guard->getToken();
                 $oldJti = JWTAuth::setToken($oldToken)->getPayload()->get('jti');
+                $user = $guard->user();
+
+                // Session limit check: hapus session terlama jika sudah mencapai batas (3)
+                $activeSessions = UserSession::where('user_id', $user->id)
+                    ->where('jti', '!=', $oldJti)
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                if ($activeSessions->count() >= 3) {
+                    $activeSessions->first()->delete();
+                }
 
                 $newToken = $guard->refresh();
                 $newJti = JWTAuth::setToken($newToken)->getPayload()->get('jti');

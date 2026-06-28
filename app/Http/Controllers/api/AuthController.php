@@ -9,6 +9,7 @@ use App\Services\AuthService;
 use Exception;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
@@ -46,6 +47,8 @@ class AuthController extends Controller
             );
         } catch (AuthenticationException $e) {
             return $this->errorResponse($e->getMessage(), 401);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Login Fatal Error: ' . $e->getMessage());
             return $this->errorResponse('Something went wrong on our server.');
@@ -104,6 +107,10 @@ class AuthController extends Controller
             $this->authService->changePassword($currentUser->uuid, $request->validated('password'));
 
             return $this->successResponse(null, 'Password changed successfully');
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (Exception $e) {
             Log::error('Change Password Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to change password.');

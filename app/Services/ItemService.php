@@ -309,7 +309,7 @@ class ItemService
                     : $item->code_item,
                 'name'        => $data['name']        ?? $item->name,
                 'type'        => $data['type']         ?? $item->type,
-                'units' => $data['type'] === 'logistic' || $item->type === 'logistic' ? ($data['units'] ?? $item->units) : null,
+                'units' => ($data['type'] ?? $item->type) === 'logistic' ? ($data['units'] ?? $item->units) : null,
                 'image_item'  => $imagePath,
                 'location'    => $data['location']     ?? $item->location,
                 'description' => $data['description']  ?? $item->description,

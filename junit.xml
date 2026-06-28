@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="D:\xampp\htdocs\simaApi-app\phpunit.xml" tests="6" assertions="23" errors="0" failures="6" skipped="0" time="1.981786">
+    <testsuite name="Feature" tests="6" assertions="23" errors="0" failures="6" skipped="0" time="1.981786">
+      <testsuite name="Tests\Feature\ApiSmokeTest" file="D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php" tests="6" assertions="23" errors="0" failures="6" skipped="0" time="1.981786">
+        <testcase name="test_auth_and_profile_endpoints" file="D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php" line="151" class="Tests\Feature\ApiSmokeTest" classname="Tests.Feature.ApiSmokeTest" assertions="6" time="1.376616">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ApiSmokeTest::test_auth_and_profile_endpoints&#13;
+Failed asserting that an array has the key 'user'.
+&#13;
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\AssertableJsonString.php:303
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\AssertableJsonString.php:278
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\AssertableJsonString.php:301
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:1023
+D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php:159</failure>
+        </testcase>
+        <testcase name="test_super_admin_user_management_endpoints" file="D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php" line="204" class="Tests\Feature\ApiSmokeTest" classname="Tests.Feature.ApiSmokeTest" assertions="4" time="0.161907">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ApiSmokeTest::test_super_admin_user_management_endpoints&#13;
+Expected response status code [200] but received 405.
+Failed asserting that 405 is identical to 200.
+&#13;
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:176
+D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php:235</failure>
+        </testcase>
+        <testcase name="test_role_management_endpoints" file="D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php" line="258" class="Tests\Feature\ApiSmokeTest" classname="Tests.Feature.ApiSmokeTest" assertions="3" time="0.120048">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ApiSmokeTest::test_role_management_endpoints&#13;
+Expected response status code [200] but received 405.
+Failed asserting that 405 is identical to 200.
+&#13;
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:176
+D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php:278</failure>
+        </testcase>
+        <testcase name="test_category_management_endpoints" file="D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php" line="289" class="Tests\Feature\ApiSmokeTest" classname="Tests.Feature.ApiSmokeTest" assertions="3" time="0.084636">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ApiSmokeTest::test_category_management_endpoints&#13;
+Expected response status code [200] but received 405.
+Failed asserting that 405 is identical to 200.
+&#13;
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:176
+D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php:309</failure>
+        </testcase>
+        <testcase name="test_item_management_endpoints" file="D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php" line="320" class="Tests\Feature\ApiSmokeTest" classname="Tests.Feature.ApiSmokeTest" assertions="1" time="0.092183">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ApiSmokeTest::test_item_management_endpoints&#13;
+Expected response status code [201] but received 422.
+Failed asserting that 422 is identical to 201.&#13;
+&#13;
+The following errors occurred during the last request:
+
+{
+    "message": "The units field must be an integer.",
+    "errors": {
+        "units": [
+            "The units field must be an integer."
+        ]
+    }
+}
+&#13;
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:176
+D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php:332</failure>
+        </testcase>
+        <testcase name="test_maintenance_spk_and_rekap_endpoints" file="D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php" line="385" class="Tests\Feature\ApiSmokeTest" classname="Tests.Feature.ApiSmokeTest" assertions="6" time="0.146397">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ApiSmokeTest::test_maintenance_spk_and_rekap_endpoints&#13;
+Expected response status code [200] but received 422.
+Failed asserting that 422 is identical to 200.
+&#13;
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+D:\xampp\htdocs\simaApi-app\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:176
+D:\xampp\htdocs\simaApi-app\tests\Feature\ApiSmokeTest.php:432</failure>
+        </testcase>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

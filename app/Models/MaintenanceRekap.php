@@ -41,6 +41,11 @@ class MaintenanceRekap extends Model
         return $this->morphMany(Attachment::class, 'attachable');
     }
 
+    public function spk()
+    {
+        return $this->belongsTo(SPK::class, 'spk_id');
+    }
+
     /**
      * Get the attributes that should be cast.
      *

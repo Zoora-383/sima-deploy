@@ -22,7 +22,22 @@ class ChangePasswordRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'password'   => 'required|string|min:8',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'password.regex' => 'Password harus mengandung huruf besar, huruf kecil, dan angka.',
+            'password.min'   => 'Password minimal 8 karakter.',
         ];
     }
 }

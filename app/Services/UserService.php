@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserSession;
 use App\Traits\SecureImageUpload;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -21,11 +22,14 @@ class UserService
     private function generateUniqueUsername(string $email)
     {
         $baseUsername = Str::before($email, '@');
-        $username = Str::slug($baseUsername);
+        $baseUsername = Str::slug($baseUsername);
 
-        $checkUniqueUsername = User::where('username', $username)->count();
-        if ($checkUniqueUsername > 0) {
-            $username = $username . ($checkUniqueUsername + 1);
+        // Cari username unik dengan increment suffix jika sudah terpakai
+        $username = $baseUsername;
+        $suffix = 1;
+        while (User::where('username', $username)->exists()) {
+            $username = $baseUsername . $suffix;
+            $suffix++;
         }
 
         return $username;
@@ -54,6 +58,14 @@ class UserService
             ]);
 
             DB::commit();
+
+            // Security log: catat pembuatan akun super-admin
+            if ($role->name === 'super-admin') {
+                \Illuminate\Support\Facades\Log::warning('SECURITY: Akun super-admin baru dibuat', [
+                    'created_by' => request()->user()?->email ?? 'system',
+                    'new_super_admin_email' => $data['email'],
+                ]);
+            }
 
             return $newAccount;
         } catch (Exception $e) {
@@ -243,6 +255,11 @@ class UserService
             DB::beginTransaction();
 
             $user->update(['is_active' => $status]);
+
+            // Hapus semua session user jika dinonaktifkan
+            if ($status === false) {
+                UserSession::where('user_id', $user->id)->delete();
+            }
 
             DB::commit();
 

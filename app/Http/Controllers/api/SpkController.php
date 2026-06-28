@@ -43,14 +43,15 @@ class SpkController extends Controller
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('SPK Store Error: ' . $e->getMessage());
-            return $this->errorResponse('Gagal membuat SPK: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Gagal membuat SPK.', 500);
         }
     }
 
     public function index()
     {
         try {
-            $spks = $this->SPKService->getAllSPK();
+            $currentUser = auth('api')->user();
+            $spks = $this->SPKService->getAllSPK($currentUser);
 
             return $this->successResponse(SPKIndexResource::collection($spks), 'Get all spk successfully');
         } catch (AccessDeniedHttpException $e) {
@@ -64,7 +65,8 @@ class SpkController extends Controller
     public function show(string $uuid)
     {
         try {
-            $spk = $this->SPKService->getDetailSpk($uuid);
+            $currentUser = auth('api')->user();
+            $spk = $this->SPKService->getDetailSpk($uuid, $currentUser);
 
             return $this->successResponse(new SPKResource($spk), 'Get detail SPK successfully');
         } catch (NotFoundHttpException $e) {
@@ -80,7 +82,8 @@ class SpkController extends Controller
     public function update(SpkUpdateRequest $request, string $uuid)
     {
         try {
-            $updatedSpk = $this->SPKService->updateSpk($request->validated(), $uuid);
+            $currentUser = auth('api')->user();
+            $updatedSpk = $this->SPKService->updateSpk($request->validated(), $uuid, $currentUser);
 
             return $this->successResponse(
                 new SPKResource($updatedSpk),
@@ -99,7 +102,8 @@ class SpkController extends Controller
     public function destroy(string $uuid)
     {
         try {
-            $spk = $this->SPKService->deleteSpk($uuid);
+            $currentUser = auth('api')->user();
+            $spk = $this->SPKService->deleteSpk($uuid, $currentUser);
 
             return $this->successResponse(null, 'Deleted spk successfully');
         } catch (AccessDeniedHttpException $e) {

@@ -34,7 +34,24 @@ class ChangeMyPasswordRequest extends FormRequest
                     }
                 }
             ],
-            'password' => 'required|string|min:8|different:current_password',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'different:current_password',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'password.regex'            => 'Password harus mengandung huruf besar, huruf kecil, dan angka.',
+            'password.different'        => 'Password baru harus berbeda dari password lama.',
+            'password.min'              => 'Password minimal 8 karakter.',
         ];
     }
 }

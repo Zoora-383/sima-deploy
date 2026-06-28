@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class MaintenanceService
@@ -202,7 +203,7 @@ class MaintenanceService
                 $query->where('requester_id', $currentUser->id);
             }
 
-            return $query->latest()->get();
+            return $query->latest()->paginate(10);
         } catch (Exception $e) {
             throw new Exception("Gagal mengambil data maintenance: " . $e->getMessage());
         }
@@ -272,7 +273,7 @@ class MaintenanceService
             throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update this maintenance request.');
         }
 
-        $allowedStatuses = ['draft', 'rejected'];
+        $allowedStatuses = ['draft', 'revision'];
         if (!in_array($maintenance->status, $allowedStatuses)) {
             throw new \InvalidArgumentException(
                 "Pengajuan tidak dapat diubah karena sedang dalam proses validasi atau pengerjaan "
@@ -406,7 +407,7 @@ class MaintenanceService
             throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to delete this maintenance request.');
         }
 
-        $allowedStatuses = ['draft', 'rejected'];
+        $allowedStatuses = ['draft', 'revision'];
         if (!in_array($maintenance->status, $allowedStatuses)) {
             throw new \InvalidArgumentException(
                 "Pengajuan tidak dapat dihapus karena sedang dalam proses validasi atau pengerjaan "
@@ -464,18 +465,18 @@ class MaintenanceService
         $statusFrom = $maintenance->status;
         $statusTo   = $data['status'];
 
-        // Map 'pending_kasi' to 'pending_pust' for role 'kasi' when current status is 'draft' or 'rejected'
+        // Map 'pending_kasi' to 'pending_pust' for role 'kasi' when current status is 'draft' or 'revision'
         if ($currentUser->role->name === 'kasi' && $statusTo === 'pending_kasi') {
-            if ($statusFrom === 'draft' || $statusFrom === 'rejected') {
+            if ($statusFrom === 'draft' || $statusFrom === 'revision') {
                 $statusTo = 'pending_pust';
             }
         }
 
-        // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting a request rejected by kel_pust
+        // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting a request revised by kel_pust
         if ($currentUser->role->name === 'admin' && $statusTo === 'pending_kasi') {
-            if ($statusFrom === 'rejected') {
+            if ($statusFrom === 'revision') {
                 $lastRejectedLog = $maintenance->approvalLogs()
-                    ->where('status_to', 'rejected')
+                    ->where('status_to', 'revision')
                     ->orderByDesc('id')
                     ->first();
 
@@ -498,23 +499,22 @@ class MaintenanceService
 
         $roleTransitions = [
             'admin' => [
-                'draft'        => ['pending_kasi'],
-                'rejected'     => ['pending_kasi'],
-                'in_progress'  => ['done'],
+                'draft'    => ['pending_kasi'],
+                'revision' => ['pending_kasi'],
             ],
             'kasi'     => [
                 'draft'        => ['pending_pust'],
-                'rejected'     => ['pending_pust'],
-                'pending_kasi' => ['pending_pust', 'rejected']
+                'revision'     => ['pending_pust'],
+                'pending_kasi' => ['pending_pust', 'revision']
             ],
             'kel_pust' => [
-                'pending_pust' => ['in_progress',  'rejected']
+                'pending_pust' => ['revision']
             ],
         ];
 
-        if ($currentUser->role->name === 'admin' && $statusFrom === 'rejected') {
+        if ($currentUser->role->name === 'admin' && $statusFrom === 'revision') {
             $lastRejectedLog = $maintenance->approvalLogs()
-                ->where('status_to', 'rejected')
+                ->where('status_to', 'revision')
                 ->orderByDesc('id')
                 ->first();
 
@@ -526,7 +526,7 @@ class MaintenanceService
             }
 
             if ($rejectedByKelPust) {
-                $roleTransitions['admin']['rejected'] = ['pending_pust'];
+                $roleTransitions['admin']['revision'] = ['pending_pust'];
             }
         }
 
@@ -542,18 +542,6 @@ class MaintenanceService
         try {
             DB::beginTransaction();
 
-            if ($statusTo === 'in_progress' && $statusFrom === 'pending_pust') {
-                $this->spkService->addSPK([
-                    'tanggal_mulai_efektif'   => $data['tanggal_mulai_efektif']  ?? now()->toDateString(),
-                    'tanggal_selesai_target'  => $data['tanggal_selesai_target'] ?? now()->addDays(7)->toDateString(),
-                    'pagu_anggaran_disetujui' => $data['pagu_anggaran_disetujui'] ?? 0,
-                    'note'                    => $data['note'] ?? 'SPK otomatis dibuat oleh sistem saat persetujuan Kepala PUSTIKOM.'
-                ], $currentUser, $maintenance->uuid);
-            }
-
-            // Refresh model status to check if it was already updated by SPK auto-transition
-            $maintenance->refresh();
-
             if ($maintenance->status !== $statusTo) {
                 $maintenance->update(['status' => $statusTo]);
 
@@ -562,15 +550,6 @@ class MaintenanceService
                     . " menjadi " . str_replace('_', ' ', $statusTo);
 
                 $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
-            }
-
-            // --- AUTOMATION: REKAP CREATION ---
-            // Triggered when Admin finishes to done
-            if ($statusTo === 'done') {
-                $spk = SPK::where('maintenance_id', $maintenance->id)->first();
-                if ($spk) {
-                    $this->addRekapsMaintenance($data, $spk->uuid);
-                }
             }
 
             DB::commit();
@@ -590,7 +569,7 @@ class MaintenanceService
     public function getAllRekaps()
     {
         try {
-            return MaintenanceRekap::with(['spk.maintenance.item'])->latest()->get();
+            return MaintenanceRekap::with(['spk.maintenance.item'])->latest()->paginate(10);
         } catch (Exception $e) {
             throw new Exception("Gagal mengambil data rekap: " . $e->getMessage());
         }
@@ -646,8 +625,13 @@ class MaintenanceService
      * @throws Exception
      * @return MaintenanceRekap|TModel|TValue|\Eloquent|\stdClass
      */
-    public function addRekapsMaintenance(array $data, string $spkUuid)
+    public function addRekapsMaintenance(array $data, string $spkUuid, User $currentUser)
     {
+        // Role check di service layer (defense-in-depth)
+        if (!in_array($currentUser->role->name, ['admin', 'kel_pust'])) {
+            throw new AccessDeniedHttpException('Anda tidak berhak melakukan rekapitulasi.');
+        }
+
         $spk = SPK::with('maintenance')->where('uuid', $spkUuid)->first();
 
         if (!$spk) {

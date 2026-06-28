@@ -11,7 +11,8 @@ class UserStoreRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $user = auth('api')->user();
+        return $user && $user->role->name === 'super-admin';
     }
 
     /**
@@ -24,7 +25,22 @@ class UserStoreRequest extends FormRequest
         return [
             'role_uuid'  => 'required|uuid|exists:roles,uuid',
             'email'      => 'required|email|unique:users,email',
-            'password'   => 'required|string|min:8',
+            'password'   => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'password.regex' => 'Password harus mengandung huruf besar, huruf kecil, dan angka.',
+            'password.min'   => 'Password minimal 8 karakter.',
         ];
     }
 }

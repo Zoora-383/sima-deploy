@@ -10,7 +10,8 @@ class UserUpdateRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = auth('api')->user();
+        return $user && $user->role->name === 'super-admin';
     }
 
     public function rules(): array

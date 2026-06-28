@@ -129,7 +129,7 @@ return [
 
     'middleware' => [
         'web',
-        RestrictedDocsAccess::class,
+        \App\Http\Middleware\DocsAuthenticated::class,
     ],
 
     'extensions' => [],

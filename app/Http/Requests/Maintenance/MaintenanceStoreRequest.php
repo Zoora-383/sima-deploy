@@ -41,7 +41,7 @@ class MaintenanceStoreRequest extends FormRequest
             'request_items.*.qty'                   => 'nullable|integer|min:1',
             'request_items.*.satuan'                => 'nullable|string|max:50',
             'request_items.*.estimasi_biaya_satuan' => 'nullable|numeric|min:0',
-            'request_items.*.image_item'            => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
+            'request_items.*.image_item'            => 'nullable|file|mimes:jpg,jpeg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:2048',
         ];
     }
 

@@ -86,7 +86,7 @@ class MaintenanceStatusTransitionTest extends TestCase
         $this->assertEquals('pending_pust', $updated->status);
     }
 
-    public function test_kasi_role_can_transition_from_rejected_directly_to_pending_pust(): void
+    public function test_kasi_role_can_transition_from_revision_directly_to_pending_pust(): void
     {
         // 1. Setup roles
         $adminRole = Role::create(['uuid' => Str::uuid()->toString(), 'name' => 'admin']);
@@ -123,7 +123,7 @@ class MaintenanceStatusTransitionTest extends TestCase
             'status' => 'active',
         ]);
 
-        // 4. Create maintenance request in rejected status
+        // 4. Create maintenance request in revision status
         $maintenance = MaintenanceRequest::create([
             'uuid' => Str::uuid()->toString(),
             'nomor_pengajuan' => 'MNT-2026-0002',
@@ -134,13 +134,13 @@ class MaintenanceStatusTransitionTest extends TestCase
             'type' => 'korektif',
             'description' => 'Keyboard keys are not working',
             'target_completion_expectations' => now()->addDays(5)->toDateString(),
-            'status' => 'rejected',
+            'status' => 'revision',
         ]);
 
         // 5. Attempt status update to 'pending_kasi' as 'kasi' user
         $updated = $this->maintenanceService->updateStatus(
             $maintenance->uuid,
-            ['status' => 'pending_kasi', 'note' => 'Resubmitting rejected request'],
+            ['status' => 'pending_kasi', 'note' => 'Resubmitting revised request'],
             $kasiUser
         );
 
@@ -184,7 +184,7 @@ class MaintenanceStatusTransitionTest extends TestCase
         ], $adminUser);
     }
 
-    public function test_admin_resubmitting_maintenance_rejected_by_kel_pust_goes_directly_to_pending_pust(): void
+    public function test_admin_resubmitting_maintenance_revised_by_kel_pust_goes_directly_to_pending_pust(): void
     {
         $adminRole = Role::create(['uuid' => Str::uuid()->toString(), 'name' => 'admin']);
         $pustRole = Role::create(['uuid' => Str::uuid()->toString(), 'name' => 'kel_pust']);
@@ -228,15 +228,15 @@ class MaintenanceStatusTransitionTest extends TestCase
             'type' => 'korektif',
             'description' => 'Keyboard keys are not working',
             'target_completion_expectations' => now()->addDays(5)->toDateString(),
-            'status' => 'rejected',
+            'status' => 'revision',
         ]);
 
         $maintenance->approvalLogs()->create([
             'uuid' => Str::uuid()->toString(),
             'user_id' => $pustUser->id,
             'status_from' => 'pending_pust',
-            'status_to' => 'rejected',
-            'note' => 'Rejected by Kel Pust for test',
+            'status_to' => 'revision',
+            'note' => 'Revised by Kel Pust for test',
         ]);
 
         $updated = $this->maintenanceService->updateStatus(

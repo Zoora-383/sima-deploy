@@ -9,6 +9,7 @@ use App\Services\ItemService;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 // use Illuminate\Http\Request;
 
@@ -33,6 +34,10 @@ class ItemCategoryController extends Controller
             );
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Item Category Store Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to create item category.');
@@ -45,11 +50,15 @@ class ItemCategoryController extends Controller
             $category = $this->itemService->getAllCategories();
 
             return $this->successResponse(
-                ['categories' => ItemCategoryResource::collection($category)], 
+                ['categories' => ItemCategoryResource::collection($category)],
                 'Get all categories successfully'
             );
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Item Category Index Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to get item categories.');
@@ -64,6 +73,10 @@ class ItemCategoryController extends Controller
             return $this->successResponse(null, 'Item category deleted successfully');
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Item Category Destroy Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to delete item category.');
@@ -76,11 +89,15 @@ class ItemCategoryController extends Controller
             $category = $this->itemService->updateItemCategory($uuid, $request->validated());
 
             return $this->successResponse(
-                ['category' => new ItemCategoryResource($category)], 
+                ['category' => new ItemCategoryResource($category)],
                 'Item category updated successfully'
             );
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Item Category Update Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to update item category.');

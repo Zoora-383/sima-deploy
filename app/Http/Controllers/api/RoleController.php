@@ -7,9 +7,9 @@ use App\Http\Requests\Role\RoleStoreRequest;
 use App\Http\Resources\RoleResource;
 use App\Services\RoleService;
 use Exception;
-// use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class RoleController extends Controller
 {
@@ -32,6 +32,10 @@ class RoleController extends Controller
             );
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Role Store Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to create roles.');
@@ -49,6 +53,10 @@ class RoleController extends Controller
             );
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Role Index Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to get roles.');
@@ -66,6 +74,10 @@ class RoleController extends Controller
             );
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Role Update Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to update role.');
@@ -80,6 +92,10 @@ class RoleController extends Controller
             return $this->successResponse(null, 'Role deleted successfully');
         } catch (AccessDeniedHttpException $e) {
             return $this->errorResponse($e->getMessage(), 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
             Log::error('Role Destroy Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to delete role.');

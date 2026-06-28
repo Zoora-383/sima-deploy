@@ -17,9 +17,9 @@ Route::prefix('v1')->group(function () {
 
         // Auth routes — JWT required, force.password.change diizinkan agar user bisa change/logout/refresh
         Route::middleware([JwtCheckMiddleware::class])->group(function () {
-            Route::post('/change-password', [AuthController::class, 'changePassword']);
-            Route::post('/logout', [AuthController::class, 'logout']);
-            Route::post('/refresh', [AuthController::class, 'refresh']);
+            Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:10,1');
+            Route::post('/logout', [AuthController::class, 'logout'])->middleware('throttle:30,1');
+            Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:10,1');
         });
     });
 
@@ -64,6 +64,12 @@ Route::prefix('v1')->group(function () {
 
         // --- MAINTENANCE REQUESTS ---
         Route::get('/maintenance', [MaintenanceController::class, 'index']);
+        Route::middleware('role:admin')->group(function () {
+            Route::get('/maintenance/rekaps', [MaintenanceController::class, 'indexRekap']);
+            Route::get('/maintenance/rekaps/{rekap_uuid}', [MaintenanceController::class, 'showRekap']);
+            Route::delete('/maintenance/rekaps/{rekap_uuid}', [MaintenanceController::class, 'destroyRekap']);
+        });
+
         Route::get('/maintenance/{uuid}', [MaintenanceController::class, 'show']);
         Route::middleware('role:admin')->group(function () {
             Route::post('/maintenance', [MaintenanceController::class, 'store']);
@@ -74,15 +80,12 @@ Route::prefix('v1')->group(function () {
         Route::middleware('role:admin,kasi,kel_pust')->patch('/maintenance/{uuid}/status', [MaintenanceController::class, 'updateStatus']);
         Route::middleware('role:admin')->group(function () {
             Route::patch('/maintenance/{uuid}/rekap', [MaintenanceController::class, 'updateRekap']);
-            Route::get('/maintenance/rekaps', [MaintenanceController::class, 'indexRekap']);
-            Route::get('/maintenance/rekaps/{rekap_uuid}', [MaintenanceController::class, 'showRekap']);
-            Route::delete('/maintenance/rekaps/{rekap_uuid}', [MaintenanceController::class, 'destroyRekap']);
         });
 
         // --- SPK (SURAT PERINTAH KERJA) ---
         Route::get('/spk', [SpkController::class, 'index']);
         Route::get('/spk/{uuid}', [SpkController::class, 'show']);
-        Route::get('/spk/{uuid}/pdf', [SpkController::class, 'exportPdf']);
+        Route::get('/spk/{uuid}/pdf', [SpkController::class, 'exportPdf'])->middleware('throttle:5,1');
         Route::middleware('role:admin,kel_pust')->group(function () {
             Route::post('/spk', [SpkController::class, 'store']);
             Route::patch('/spk/{uuid}', [SpkController::class, 'update']);

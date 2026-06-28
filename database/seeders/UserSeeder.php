@@ -25,7 +25,7 @@ class UserSeeder extends Seeder
             'role_id'  => $role->id,
             'email'    => $email,
             'username'   => $username,
-            'password' => Hash::make('superadmin123'),
+            'password' => Hash::make(env('DEFAULT_USER_PASSWORD', 'superadmin123')),
             'is_active' => 1,
         ]);
         $user->userProfile()->create([
