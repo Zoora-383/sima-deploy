@@ -4,10 +4,13 @@ RUN apk add --no-cache \
     libzip-dev \
     libpng-dev \
     libjpeg-turbo-dev \
+    freetype-dev \
+    libwebp-dev \
     oniguruma-dev \
     unzip \
     git \
     curl \
+  && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
   && docker-php-ext-install \
     pdo_mysql \
     zip \
@@ -15,6 +18,7 @@ RUN apk add --no-cache \
     exif \
     pcntl \
     bcmath \
+    gd \
   && rm -rf /var/cache/apk/*
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
