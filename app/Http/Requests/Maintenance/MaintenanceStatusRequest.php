@@ -29,7 +29,7 @@ class MaintenanceStatusRequest extends FormRequest
             'note'                    => ['required_if:status,revision', 'nullable', 'string', 'max:500'],
             'tanggal_mulai_efektif'   => ['required_if:status,in_progress', 'nullable', 'date'],
             'tanggal_selesai_target'  => ['required_if:status,in_progress', 'nullable', 'date', 'after_or_equal:tanggal_mulai_efektif'],
-            'pagu_anggaran_disetujui' => ['required_if:status,in_progress', 'nullable', 'numeric', 'min:0'],
+            'pagu_anggaran_disetujui' => ['required_if:status,in_progress', 'nullable', 'numeric', 'min:0', 'max:999999999999'],
         ];
     }
 
@@ -45,6 +45,7 @@ class MaintenanceStatusRequest extends FormRequest
             'pagu_anggaran_disetujui.required_if'   => 'Pagu anggaran yang disetujui wajib diisi saat menyetujui pengajuan.',
             'pagu_anggaran_disetujui.numeric'       => 'Pagu anggaran harus berupa angka.',
             'pagu_anggaran_disetujui.min'           => 'Pagu anggaran tidak boleh bernilai negatif.',
+            'pagu_anggaran_disetujui.max'           => 'Pagu anggaran tidak boleh melebihi 999.999.999.999.',
         ];
     }
 }

@@ -24,7 +24,15 @@ class SpkUpdateRequest extends FormRequest
         return [
             'tanggal_mulai_efektif'   => 'sometimes|date',
             'tanggal_selesai_target'  => 'sometimes|date|after_or_equal:tanggal_mulai_efektif',
-            'pagu_anggaran_disetujui' => 'sometimes|numeric|min:0',
+            'pagu_anggaran_disetujui' => 'sometimes|numeric|min:0|max:999999999999',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'pagu_anggaran_disetujui.numeric' => 'Pagu anggaran harus berupa format angka.',
+            'pagu_anggaran_disetujui.max' => 'Pagu anggaran tidak boleh melebihi 999.999.999.999.',
         ];
     }
 }

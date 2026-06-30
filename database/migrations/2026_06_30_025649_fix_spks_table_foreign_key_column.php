@@ -32,6 +32,12 @@ return new class extends Migration
                       ->cascadeOnDelete();
             });
         }
+
+        if (Schema::hasColumn('spks', 'pagu_anggaran_disetujui')) {
+            Schema::table('spks', function (Blueprint $table) {
+                $table->decimal('pagu_anggaran_disetujui', 15, 2)->nullable()->change();
+            });
+        }
     }
 
     /**
@@ -39,6 +45,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (Schema::hasColumn('spks', 'pagu_anggaran_disetujui')) {
+            Schema::table('spks', function (Blueprint $table) {
+                $table->decimal('pagu_anggaran_disetujui', 10, 2)->nullable()->change();
+            });
+        }
+
         if (Schema::hasColumn('spks', 'maintenance_id')) {
             Schema::table('spks', function (Blueprint $table) {
                 try {

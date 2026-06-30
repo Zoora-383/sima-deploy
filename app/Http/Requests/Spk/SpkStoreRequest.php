@@ -25,7 +25,7 @@ class SpkStoreRequest extends FormRequest
             'maintenance_uuid'        => 'required|uuid|exists:maintenance_requests,uuid',
             'tanggal_mulai_efektif'   => 'required|date',
             'tanggal_selesai_target'  => 'required|date|date_format:Y-m-d|after_or_equal:tanggal_mulai_efektif',
-            'pagu_anggaran_disetujui' => 'nullable|numeric|min:0',
+            'pagu_anggaran_disetujui' => 'nullable|numeric|min:0|max:999999999999',
             'note'                    => 'nullable|string|max:500',
         ];
     }
@@ -39,6 +39,7 @@ class SpkStoreRequest extends FormRequest
             'tanggal_selesai_target.required' => 'Tanggal selesai target wajib diisi.',
             'tanggal_selesai_target.after_or_equal' => 'Tanggal selesai target tidak boleh mendahului tanggal mulai efektif.',
             'pagu_anggaran_disetujui.numeric' => 'Pagu anggaran harus berupa format angka.',
+            'pagu_anggaran_disetujui.max' => 'Pagu anggaran tidak boleh melebihi 999.999.999.999.',
         ];
     }
 }
