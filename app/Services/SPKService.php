@@ -104,6 +104,13 @@ class SPKService
                     $data['note'] ?? 'Status otomatis diubah ke in progress karena SPK telah diterbitkan.',
                     $currentUser->id
                 );
+
+                // Notification Trigger
+                try {
+                    \App\Models\Notification::sendToUser($maintenance->requester_id, 'SPK Pemeliharaan Diterbitkan', "Surat Perintah Kerja (SPK) untuk pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) telah diterbitkan dengan nomor {$newSpk->nomor_spk}.");
+                } catch (\Exception $ne) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send SPK creation notification: ' . $ne->getMessage());
+                }
             }
 
             DB::commit();

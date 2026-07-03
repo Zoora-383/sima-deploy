@@ -6,6 +6,7 @@ use App\Http\Controllers\api\ProfileController;
 use App\Http\Controllers\api\RoleController;
 use App\Http\Controllers\api\ItemController;
 use App\Http\Controllers\api\MaintenanceController;
+use App\Http\Controllers\api\NotificationController;
 use App\Http\Controllers\api\SpkController;
 use App\Http\Controllers\api\UserController;
 use App\Http\Middleware\JwtCheckMiddleware;
@@ -30,6 +31,12 @@ Route::prefix('v1')->group(function () {
         Route::match(['put', 'patch'], '/profile', [ProfileController::class, 'update']);
         Route::delete('/profile', [ProfileController::class, 'destroy']);
         Route::put('/profile/reset-password', [ProfileController::class, 'updateMyPassword']);
+
+        // --- NOTIFICATIONS ---
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::patch('/notifications/{uuid}/read', [NotificationController::class, 'markAsRead']);
+        Route::delete('/notifications/{uuid}', [NotificationController::class, 'destroy']);
 
         // --- USERS (SUPER ADMIN) ---
         Route::middleware('role:super-admin')->group(function () {

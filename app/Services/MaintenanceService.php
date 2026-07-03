@@ -550,6 +550,19 @@ class MaintenanceService
                     . " menjadi " . str_replace('_', ' ', $statusTo);
 
                 $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
+
+                // Notification Trigger
+                try {
+                    if ($statusTo === 'pending_kasi') {
+                        \App\Models\Notification::sendToRole('kasi', 'Persetujuan Pemeliharaan Baru', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) membutuhkan persetujuan Anda.");
+                    } elseif ($statusTo === 'pending_pust') {
+                        \App\Models\Notification::sendToRole('kel_pust', 'Persetujuan Akhir Pemeliharaan', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) membutuhkan persetujuan akhir Anda.");
+                    } elseif ($statusTo === 'revision') {
+                        \App\Models\Notification::sendToUser($maintenance->requester_id, 'Revisi Pengajuan Pemeliharaan', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) perlu direvisi. Catatan: " . ($data['note'] ?? 'Tidak ada catatan.'));
+                    }
+                } catch (\Exception $ne) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send maintenance transition notification: ' . $ne->getMessage());
+                }
             }
 
             DB::commit();
@@ -657,7 +670,7 @@ class MaintenanceService
                 $rekaps->update($payload);
             }
 
-            // Auto-transition associated maintenance request status to 'done'
+             // Auto-transition associated maintenance request status to 'done'
             $maintenance = $spk->maintenance;
             if ($maintenance && $maintenance->status !== 'done') {
                 $statusFrom = $maintenance->status;
@@ -673,6 +686,13 @@ class MaintenanceService
                     $data['note'] ?? 'Status otomatis diubah ke done setelah rekapitulasi disubmit.',
                     $userId
                 );
+
+                // Notification Trigger
+                try {
+                    \App\Models\Notification::sendToUser($maintenance->requester_id, 'Pekerjaan Pemeliharaan Selesai', "Pekerjaan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) telah selesai direkapitulasi.");
+                } catch (\Exception $ne) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send rekap done notification: ' . $ne->getMessage());
+                }
             }
 
             return $rekaps;

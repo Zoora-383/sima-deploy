@@ -473,8 +473,23 @@ class ItemService
                 $updateData['approved_by'] = $currentUser->id;
             }
 
-            $item->update($updateData);
+             $item->update($updateData);
             $this->recordLog($item, $statusFrom, $statusTo, $data['note'] ?? null, $currentUser->id);
+
+            // Notification Trigger
+            try {
+                if ($statusTo === 'pending_kasi') {
+                    \App\Models\Notification::sendToRole('kasi', 'Persetujuan Aset Baru', "Aset baru '{$item->name}' ({$item->code_item}) membutuhkan persetujuan Anda.");
+                } elseif ($statusTo === 'pending_pust') {
+                    \App\Models\Notification::sendToRole('kel_pust', 'Persetujuan Akhir Aset', "Aset baru '{$item->name}' ({$item->code_item}) membutuhkan persetujuan akhir Anda.");
+                } elseif ($statusTo === 'revision') {
+                    \App\Models\Notification::sendToUser($item->user_id, 'Revisi Pengajuan Aset', "Pengajuan aset '{$item->name}' ({$item->code_item}) perlu direvisi. Catatan: " . ($data['note'] ?? 'Tidak ada catatan.'));
+                } elseif ($statusTo === 'active') {
+                    \App\Models\Notification::sendToUser($item->user_id, 'Aset Baru Aktif', "Aset '{$item->name}' ({$item->code_item}) telah disetujui dan berstatus aktif.");
+                }
+            } catch (\Exception $ne) {
+                \Illuminate\Support\Facades\Log::error('Failed to send item status transition notification: ' . $ne->getMessage());
+            }
 
             DB::commit();
             return $item->fresh(['approvalLogs.user', 'category', 'user.userProfile']);
