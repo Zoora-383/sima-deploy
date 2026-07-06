@@ -87,6 +87,26 @@ class NotificationController extends Controller
     }
 
     /**
+     * Delete all notifications of the logged-in user (soft delete).
+     */
+    public function deleteAll(): JsonResponse
+    {
+        try {
+            $currentUser = auth('api')->user();
+
+            Notification::where('user_id', $currentUser->id)->delete();
+
+            return $this->successResponse(
+                null,
+                'Semua notifikasi berhasil dihapus.'
+            );
+        } catch (Exception $e) {
+            Log::error('Delete All Notifications Error: ' . $e->getMessage());
+            return $this->errorResponse('Gagal menghapus semua notifikasi.', 500);
+        }
+    }
+
+    /**
      * Delete a specific notification (soft delete).
      */
     public function destroy(string $uuid): JsonResponse

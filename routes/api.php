@@ -35,6 +35,7 @@ Route::prefix('v1')->group(function () {
         // --- NOTIFICATIONS ---
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/notifications', [NotificationController::class, 'deleteAll']);
         Route::patch('/notifications/{uuid}/read', [NotificationController::class, 'markAsRead']);
         Route::delete('/notifications/{uuid}', [NotificationController::class, 'destroy']);
 
@@ -89,7 +90,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/maintenance/{uuid}/rekap', [MaintenanceController::class, 'updateRekap']);
         });
 
-        // --- SPK (SURAT PERINTAH KERJA) ---
+        //  --- SPK (SURAT PERINTAH KERJA) ---
         Route::get('/spk', [SpkController::class, 'index']);
         Route::get('/spk/{uuid}', [SpkController::class, 'show']);
         Route::get('/spk/{uuid}/pdf', [SpkController::class, 'exportPdf'])->middleware('throttle:5,1');
