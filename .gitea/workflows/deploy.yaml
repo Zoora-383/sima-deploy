@@ -85,6 +85,8 @@ jobs:
             --from-literal=AWS_USE_PATH_STYLE_ENDPOINT="${{ secrets.AWS_USE_PATH_STYLE_ENDPOINT }}" \
             --from-literal=AWS_URL="${{ secrets.AWS_URL }}" \
             --from-literal=AWS_ENDPOINT="${{ secrets.AWS_ENDPOINT }}" \
+            --from-literal=DOCS_IDENTIFIER="${{ secrets.DOCS_IDENTIFIER }}" \
+            --from-literal=DOCS_ACCESS_PASSWORD="${{ secrets.DOCS_ACCESS_PASSWORD }}" \
             --namespace=sima \
             --dry-run=client -o yaml | kubectl apply -f -
 
