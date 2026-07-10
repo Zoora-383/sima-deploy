@@ -99,7 +99,7 @@ class AuthService
             DB::beginTransaction();
 
             $user->update([
-                'password'              => Hash::make('changeme'),
+                'password'              => Hash::make('Changeme123'),
                 'force_password_change' => true,
             ]);
 
