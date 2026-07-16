@@ -20,6 +20,9 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache rewrite module
 RUN a2enmod rewrite
 
+# Set ServerName globally to suppress domain name warning
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
 # Change Apache document root to Laravel's public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf

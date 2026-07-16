@@ -40,10 +40,11 @@ if [ "$DB_CONNECTION" = "sqlite" ] && [ -n "$DB_DATABASE" ]; then
     fi
 fi
 
-# 3. Check if APP_KEY is set, if not generate one (fallback for local run, but production should configure this in Railway env)
+# 3. Check if APP_KEY is set, if not generate and export one dynamically
 if [ -z "$APP_KEY" ]; then
-    echo "WARNING: APP_KEY is not set. Generating a temporary key..."
-    php artisan key:generate --show
+    echo "WARNING: APP_KEY is not set. Generating a temporary key for the web server..."
+    # Generate the key and dynamically export it so Apache inherits it
+    export APP_KEY=$(php artisan key:generate --show --no-ansi)
 fi
 
 # 4. Create storage symlink
