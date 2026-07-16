@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
 
+# 0. Fix Apache MPM conflict (common on platforms like Railway that might inject conflicting modules)
+if command -v a2dismod >/dev/null 2>&1; then
+    echo "Resolving Apache MPM conflicts..."
+    a2dismod mpm_event mpm_worker mpm_prefork || true
+    a2enmod mpm_prefork || true
+fi
+
 # 1. Map Railway database environment variables to Laravel DB_* variables
 if [ -n "$MYSQLHOST" ]; then
     echo "Railway MySQL detected. Mapping database environment variables..."
