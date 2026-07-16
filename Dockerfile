@@ -3,18 +3,19 @@ FROM php:8.4-apache
 # Set Composer environment variable to allow running as superuser
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# Install system dependencies and PHP extensions
+# Install system dependencies and PHP extensions (including PostgreSQL drivers)
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
     libzip-dev \
     libxml2-dev \
+    libpq-dev \
     unzip \
     git \
     curl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql bcmath xml
+    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql pdo_pgsql bcmath xml
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
