@@ -31,7 +31,6 @@ fi
 
 # 2. If using SQLite, make sure the database file exists
 if [ "$DB_CONNECTION" = "sqlite" ] && [ -n "$DB_DATABASE" ]; then
-    # Ensure directory path exists
     DB_DIR=$(dirname "$DB_DATABASE")
     mkdir -p "$DB_DIR"
     if [ ! -f "$DB_DATABASE" ]; then
@@ -40,28 +39,32 @@ if [ "$DB_CONNECTION" = "sqlite" ] && [ -n "$DB_DATABASE" ]; then
     fi
 fi
 
-# 3. Check if APP_KEY is set, if not generate and export one dynamically
+# 3. Generate APP_KEY if not set
 if [ -z "$APP_KEY" ]; then
-    echo "WARNING: APP_KEY is not set. Generating a temporary key for the web server..."
-    # Generate the key and dynamically export it so Apache inherits it
+    echo "WARNING: APP_KEY is not set. Generating key..."
     export APP_KEY=$(php artisan key:generate --show --no-ansi)
+    echo "Generated APP_KEY: $APP_KEY"
 fi
 
 # 4. Create storage symlink
 echo "Linking storage..."
 php artisan storage:link --force || true
 
-# 5. Cache Laravel configurations
+# 5. Run database migrations ALWAYS (before caching config)
+echo "Running database migrations..."
+php artisan migrate --force || echo "WARNING: Migration failed, but continuing startup..."
+
+# 6. Run database seeder if requested
+if [ "$RUN_SEEDER" = "true" ]; then
+    echo "Running database seeder..."
+    php artisan db:seed --force || echo "WARNING: Seeder failed, but continuing startup..."
+fi
+
+# 7. Cache Laravel configurations (after migrations so everything is ready)
 echo "Caching configurations..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-
-# 6. Run migrations if requested via env variable
-if [ "$RUN_MIGRATIONS" = "true" ]; then
-    echo "Running database migrations..."
-    php artisan migrate --force
-fi
 
 # Execute the main container command (apache2-foreground)
 exec "$@"
