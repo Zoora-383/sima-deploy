@@ -1,4 +1,7 @@
-FROM php:8.3-apache
+FROM php:8.4-apache
+
+# Set Composer environment variable to allow running as superuser
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
@@ -17,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 RUN a2enmod rewrite
 
 # Change Apache document root to Laravel's public directory
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
