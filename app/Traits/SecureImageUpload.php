@@ -16,8 +16,9 @@ trait SecureImageUpload
      * @param string|null $disk
      * @return string
      */
-    protected function secureUpload($file, string $folder, string $disk = 's3'): string
+    protected function secureUpload($file, string $folder, ?string $disk = null): string
     {
+        $disk = $disk ?? config('filesystems.default', 's3');
         $extension = strtolower($file->getClientOriginalExtension());
         $tempFile = tempnam(sys_get_temp_dir(), 'secure_upload');
         $reEncoded = false;
@@ -79,9 +80,11 @@ trait SecureImageUpload
      * @param string $disk
      * @return void
      */
-    protected function deleteFileFromS3(?string $imageUrl, string $disk = 's3'): void
+    protected function deleteFileFromS3(?string $imageUrl, ?string $disk = null): void
     {
         if (!$imageUrl) return;
+
+        $disk = $disk ?? config('filesystems.default', 's3');
 
         try {
             $baseUrl = Storage::disk($disk)->url('');
