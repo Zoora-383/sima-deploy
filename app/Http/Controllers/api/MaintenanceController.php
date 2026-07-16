@@ -134,7 +134,7 @@ class MaintenanceController extends Controller
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
-            Log::error('Maintenance Update Error: ' . $e->getMessage());
+            Log::error('Maintenance Update Error: An unexpected error occurred.');
             return $this->errorResponse('Failed to update maintenance.', 500);
         }
     }

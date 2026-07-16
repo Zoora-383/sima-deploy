@@ -452,29 +452,70 @@ class MaintenanceService
      */
     public function updateStatus(string $maintenanceUuid, array $data, User $currentUser): MaintenanceRequest
     {
-        $maintenance = MaintenanceRequest::where('uuid', $maintenanceUuid)->first();
+        try {
+            DB::beginTransaction();
 
-        if (!$maintenance) {
-            throw new NotFoundHttpException('Maintenance not found.');
-        }
+            // Retrieve the maintenance request with a write lock (lockForUpdate) to prevent race conditions
+            $maintenance = MaintenanceRequest::where('uuid', $maintenanceUuid)->lockForUpdate()->first();
 
-        if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
-            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update the status of this maintenance request.');
-        }
-
-        $statusFrom = $maintenance->status;
-        $statusTo   = $data['status'];
-
-        // Map 'pending_kasi' to 'pending_pust' for role 'kasi' when current status is 'draft' or 'revision'
-        if ($currentUser->role->name === 'kasi' && $statusTo === 'pending_kasi') {
-            if ($statusFrom === 'draft' || $statusFrom === 'revision') {
-                $statusTo = 'pending_pust';
+            if (!$maintenance) {
+                throw new NotFoundHttpException('Maintenance not found.');
             }
-        }
 
-        // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting a request revised by kel_pust
-        if ($currentUser->role->name === 'admin' && $statusTo === 'pending_kasi') {
-            if ($statusFrom === 'revision') {
+            if ($currentUser->role->name === 'admin' && $maintenance->requester_id !== $currentUser->id) {
+                throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update the status of this maintenance request.');
+            }
+
+            $statusFrom = $maintenance->status;
+            $statusTo   = $data['status'];
+
+            // Map 'pending_kasi' to 'pending_pust' for role 'kasi' when current status is 'draft' or 'revision'
+            if ($currentUser->role->name === 'kasi' && $statusTo === 'pending_kasi') {
+                if ($statusFrom === 'draft' || $statusFrom === 'revision') {
+                    $statusTo = 'pending_pust';
+                }
+            }
+
+            // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting a request revised by kel_pust
+            if ($currentUser->role->name === 'admin' && $statusTo === 'pending_kasi') {
+                if ($statusFrom === 'revision') {
+                    $lastRejectedLog = $maintenance->approvalLogs()
+                        ->where('status_to', 'revision')
+                        ->orderByDesc('id')
+                        ->first();
+
+                    $rejectedByKelPust = false;
+                    if ($lastRejectedLog && $lastRejectedLog->user && $lastRejectedLog->user->role) {
+                        if ($lastRejectedLog->user->role->name === 'kel_pust') {
+                            $rejectedByKelPust = true;
+                        }
+                    }
+
+                    if ($rejectedByKelPust) {
+                        $statusTo = 'pending_pust';
+                    }
+                }
+            }
+
+            if ($statusFrom === $statusTo) {
+                throw new \InvalidArgumentException("Status baru tidak boleh sama dengan status saat ini.");
+            }
+
+            $roleTransitions = [
+                'admin' => [
+                    'draft'    => ['pending_kasi'],
+                    'revision' => ['pending_kasi'],
+                ],
+                'kasi'     => [
+                    'revision'     => ['pending_pust'],
+                    'pending_kasi' => ['pending_pust', 'revision']
+                ],
+                'kel_pust' => [
+                    'pending_pust' => ['revision']
+                ],
+            ];
+
+            if ($currentUser->role->name === 'admin' && $statusFrom === 'revision') {
                 $lastRejectedLog = $maintenance->approvalLogs()
                     ->where('status_to', 'revision')
                     ->orderByDesc('id')
@@ -488,81 +529,38 @@ class MaintenanceService
                 }
 
                 if ($rejectedByKelPust) {
-                    $statusTo = 'pending_pust';
-                }
-            }
-        }
-
-        if ($statusFrom === $statusTo) {
-            throw new \InvalidArgumentException("Status baru tidak boleh sama dengan status saat ini.");
-        }
-
-        $roleTransitions = [
-            'admin' => [
-                'draft'    => ['pending_kasi'],
-                'revision' => ['pending_kasi'],
-            ],
-            'kasi'     => [
-                'draft'        => ['pending_pust'],
-                'revision'     => ['pending_pust'],
-                'pending_kasi' => ['pending_pust', 'revision']
-            ],
-            'kel_pust' => [
-                'pending_pust' => ['revision']
-            ],
-        ];
-
-        if ($currentUser->role->name === 'admin' && $statusFrom === 'revision') {
-            $lastRejectedLog = $maintenance->approvalLogs()
-                ->where('status_to', 'revision')
-                ->orderByDesc('id')
-                ->first();
-
-            $rejectedByKelPust = false;
-            if ($lastRejectedLog && $lastRejectedLog->user && $lastRejectedLog->user->role) {
-                if ($lastRejectedLog->user->role->name === 'kel_pust') {
-                    $rejectedByKelPust = true;
+                    $roleTransitions['admin']['revision'] = ['pending_pust'];
                 }
             }
 
-            if ($rejectedByKelPust) {
-                $roleTransitions['admin']['revision'] = ['pending_pust'];
+            $roleName = $currentUser->role->name;
+            $allowed = $roleTransitions[$roleName][$statusFrom] ?? [];
+
+            if (!in_array($statusTo, $allowed)) {
+                throw new \InvalidArgumentException(
+                    "Role {$roleName} tidak diizinkan mengubah status dari " . str_replace('_', ' ', $statusFrom) . " ke " . str_replace('_', ' ', $statusTo)
+                );
             }
-        }
 
-        $roleName = $currentUser->role->name;
-        $allowed = $roleTransitions[$roleName][$statusFrom] ?? [];
+            $maintenance->update(['status' => $statusTo]);
 
-        if (!in_array($statusTo, $allowed)) {
-            throw new \InvalidArgumentException(
-                "Role {$roleName} tidak diizinkan mengubah status dari " . str_replace('_', ' ', $statusFrom) . " ke " . str_replace('_', ' ', $statusTo)
-            );
-        }
+            $logNote = $data['note']
+                ?? "Status diubah dari " . str_replace('_', ' ', $statusFrom)
+                . " menjadi " . str_replace('_', ' ', $statusTo);
 
-        try {
-            DB::beginTransaction();
+            $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
 
-            if ($maintenance->status !== $statusTo) {
-                $maintenance->update(['status' => $statusTo]);
-
-                $logNote = $data['note']
-                    ?? "Status diubah dari " . str_replace('_', ' ', $statusFrom)
-                    . " menjadi " . str_replace('_', ' ', $statusTo);
-
-                $this->recordLog($maintenance, $statusFrom, $statusTo, $logNote, $currentUser->id);
-
-                // Notification Trigger
-                try {
-                    if ($statusTo === 'pending_kasi') {
-                        \App\Models\Notification::sendToRole('kasi', 'Persetujuan Pemeliharaan Baru', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) membutuhkan persetujuan Anda.");
-                    } elseif ($statusTo === 'pending_pust') {
-                        \App\Models\Notification::sendToRole('kel_pust', 'Persetujuan Akhir Pemeliharaan', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) membutuhkan persetujuan akhir Anda.");
-                    } elseif ($statusTo === 'revision') {
-                        \App\Models\Notification::sendToUser($maintenance->requester_id, 'Revisi Pengajuan Pemeliharaan', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) perlu direvisi. Catatan: " . ($data['note'] ?? 'Tidak ada catatan.'));
-                    }
-                } catch (\Exception $ne) {
-                    \Illuminate\Support\Facades\Log::error('Failed to send maintenance transition notification: ' . $ne->getMessage());
+            // Notification Trigger
+            try {
+                if ($statusTo === 'pending_kasi') {
+                    \App\Models\Notification::sendToRole('kasi', 'Persetujuan Pemeliharaan Baru', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) membutuhkan persetujuan Anda.");
+                } elseif ($statusTo === 'pending_pust') {
+                    \App\Models\Notification::sendToRole('kel_pust', 'Persetujuan Akhir Pemeliharaan', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) membutuhkan persetujuan akhir Anda.");
+                } elseif ($statusTo === 'revision') {
+                    \App\Models\Notification::sendToUser($maintenance->requester_id, 'Revisi Pengajuan Pemeliharaan', "Pengajuan pemeliharaan '{$maintenance->title}' ({$maintenance->nomor_pengajuan}) perlu direvisi. Catatan: " . ($data['note'] ?? 'Tidak ada catatan.'));
                 }
+            } catch (\Exception $ne) {
+                \Illuminate\Support\Facades\Log::error('Failed to send maintenance transition notification: ' . $ne->getMessage());
             }
 
             DB::commit();
@@ -645,13 +643,21 @@ class MaintenanceService
             throw new AccessDeniedHttpException('Anda tidak berhak melakukan rekapitulasi.');
         }
 
-        $spk = SPK::with('maintenance')->where('uuid', $spkUuid)->first();
-
-        if (!$spk) {
-            throw new NotFoundHttpException('Surat kerja yang selesai gagal ditemukan');
-        }
-
         try {
+            DB::beginTransaction();
+
+            $spk = SPK::with('maintenance')->where('uuid', $spkUuid)->lockForUpdate()->first();
+
+            if (!$spk) {
+                throw new NotFoundHttpException('Surat kerja yang selesai gagal ditemukan');
+            }
+
+            // Lock the associated maintenance request to prevent concurrent status modification conflicts
+            $maintenance = null;
+            if ($spk->maintenance_id) {
+                $maintenance = MaintenanceRequest::where('id', $spk->maintenance_id)->lockForUpdate()->first();
+            }
+
             $rekaps = MaintenanceRekap::where('spk_id', $spk->id)->first();
 
             $payload = [
@@ -671,7 +677,6 @@ class MaintenanceService
             }
 
              // Auto-transition associated maintenance request status to 'done'
-            $maintenance = $spk->maintenance;
             if ($maintenance && $maintenance->status !== 'done') {
                 $statusFrom = $maintenance->status;
                 $maintenance->update(['status' => 'done']);
@@ -695,8 +700,14 @@ class MaintenanceService
                 }
             }
 
+            DB::commit();
+
             return $rekaps;
+        } catch (NotFoundHttpException | AccessDeniedHttpException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (Exception $e) {
+            DB::rollBack();
             throw new Exception("Gagal memproses rekaps maintenance: " . $e->getMessage());
         }
     }

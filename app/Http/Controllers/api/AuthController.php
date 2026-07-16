@@ -50,7 +50,7 @@ class AuthController extends Controller
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Exception $e) {
-            Log::error('Login Fatal Error: ' . $e->getMessage());
+            Log::error('Login Fatal Error: An unexpected error occurred.');
             return $this->errorResponse('Something went wrong on our server.');
         }
     }

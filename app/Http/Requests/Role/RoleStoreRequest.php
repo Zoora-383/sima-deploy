@@ -22,8 +22,10 @@ class RoleStoreRequest extends FormRequest
      */
     public function rules(): array
     {
+        $uuid = $this->route('roles') ?? $this->route('uuid');
+
         return [
-            'name' => 'required|string'
+            'name' => 'required|string|unique:roles,name' . ($uuid ? ',' . $uuid . ',uuid' : '')
         ];
     }
 }

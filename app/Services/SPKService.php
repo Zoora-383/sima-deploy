@@ -51,31 +51,36 @@ class SPKService
      */
     public function addSPK(array $data, User $currentUser, ?string $maintenanceUuid = null)
     {
+        if ($currentUser->role->name !== 'kel_pust') {
+            throw new AccessDeniedHttpException('Hanya Kepala Pustakawan yang diizinkan menerbitkan SPK.');
+        }
+
         $uuid = $maintenanceUuid ?? $data['maintenance_uuid'] ?? null;
 
         if (!$uuid) {
             throw new InvalidArgumentException('UUID Maintenance wajib disertakan untuk membuat SPK.');
         }
 
-        $maintenance = MaintenanceRequest::where('uuid', $uuid)->first();
-
-        if (!$maintenance) {
-            throw new NotFoundHttpException('Maintenance tidak ditemukan untuk pembuatan SPK.');
-        }
-
-        // Prevent duplicate SPK for the same maintenance request
-        $existingSpk = SPK::where('maintenance_id', $maintenance->id)->first();
-        if ($existingSpk) {
-            return $existingSpk; // Return existing if already created
-        }
-
-        $allowedStatuses = ['pending_pust', 'in_progress'];
-        if (!in_array($maintenance->status, $allowedStatuses)) {
-            throw new InvalidArgumentException("SPK hanya dapat dibuat untuk pengajuan maintenance yang telah disetujui Kepala PUSTIKOM (Status saat ini: " . str_replace('_', ' ', $maintenance->status) . ").");
-        }
-
         try {
             DB::beginTransaction();
+
+            $maintenance = MaintenanceRequest::where('uuid', $uuid)->lockForUpdate()->first();
+
+            if (!$maintenance) {
+                throw new NotFoundHttpException('Maintenance tidak ditemukan untuk pembuatan SPK.');
+            }
+
+            // Prevent duplicate SPK for the same maintenance request
+            $existingSpk = SPK::where('maintenance_id', $maintenance->id)->first();
+            if ($existingSpk) {
+                DB::commit();
+                return $existingSpk; // Return existing if already created
+            }
+
+            $allowedStatuses = ['pending_pust', 'in_progress'];
+            if (!in_array($maintenance->status, $allowedStatuses)) {
+                throw new InvalidArgumentException("SPK hanya dapat dibuat untuk pengajuan maintenance yang telah disetujui Kepala PUSTIKOM (Status saat ini: " . str_replace('_', ' ', $maintenance->status) . ").");
+            }
 
             $newSpk = SPK::create([
                 'uuid'                    => Str::uuid()->toString(),
@@ -116,6 +121,9 @@ class SPKService
             DB::commit();
 
             return $newSpk->load('approvalLogs.user');
+        } catch (NotFoundHttpException | InvalidArgumentException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Gagal membuat SPK dari Maintenance: " . $e->getMessage());
@@ -172,9 +180,9 @@ class SPKService
             throw new NotFoundHttpException('Spk not found.');
         }
 
-        // Authorization check: hanya admin atau kel_pust
-        if (!in_array($currentUser->role->name, ['admin', 'kel_pust'])) {
-            throw new AccessDeniedHttpException('Anda tidak berhak menghapus SPK.');
+        // Authorization check: hanya kel_pust
+        if ($currentUser->role->name !== 'kel_pust') {
+            throw new AccessDeniedHttpException('Hanya Kepala Pustakawan yang diizinkan menghapus SPK.');
         }
 
         // Status check: hanya bisa hapus jika maintenance masih draft atau revision
@@ -200,9 +208,9 @@ class SPKService
             throw new NotFoundHttpException('SPK tidak ditemukan.');
         }
 
-        // Authorization check: hanya admin atau kel_pust
-        if (!in_array($currentUser->role->name, ['admin', 'kel_pust'])) {
-            throw new AccessDeniedHttpException('Anda tidak berhak mengubah SPK.');
+        // Authorization check: hanya kel_pust
+        if ($currentUser->role->name !== 'kel_pust') {
+            throw new AccessDeniedHttpException('Hanya Kepala Pustakawan yang diizinkan mengubah SPK.');
         }
 
         try {
@@ -234,7 +242,7 @@ class SPKService
      * @throws NotFoundHttpException
      * @throws Exception
      */
-    public function generateSpkPdf(string $spkUuid)
+    public function generateSpkPdf(string $spkUuid, User $currentUser)
     {
         $spk = SPK::with(['maintenance.item.category', 'maintenance.requester.userProfile', 'approvalLogs.user.userProfile'])
             ->where('uuid', $spkUuid)
@@ -242,6 +250,13 @@ class SPKService
 
         if (!$spk) {
             throw new NotFoundHttpException('SPK tidak ditemukan.');
+        }
+
+        // Authorization check (SEC-06)
+        if ($currentUser->role->name === 'admin') {
+            if ($spk->maintenance && $spk->maintenance->requester_id !== $currentUser->id) {
+                throw new AccessDeniedHttpException('Anda tidak memiliki akses ke dokumen SPK ini.');
+            }
         }
 
         // Get the name of the Kepala UPT TIK who approved the SPK

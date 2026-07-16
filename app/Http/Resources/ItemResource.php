@@ -17,7 +17,7 @@ class ItemResource extends JsonResource
         return [
             'uuid'     => $this->uuid,
             'name'     => $this->name,
-            'image'    => $this->image_item,
+            'image'    => \App\Traits\SecureImageUpload::getPresignedUrl($this->image_item),
             'code'     => $this->code_item,
             'units'    => $this->units,
             'location' => $this->location,

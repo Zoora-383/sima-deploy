@@ -23,7 +23,8 @@ class RoleController extends Controller
     public function store(RoleStoreRequest $request)
     {
         try {
-            $newRoles = $this->roleService->addRole($request->validated());
+            $currentUser = auth('api')->user();
+            $newRoles = $this->roleService->addRole($request->validated(), $currentUser);
 
             return $this->successResponse(
                 ['role' => new RoleResource($newRoles)],
@@ -66,7 +67,8 @@ class RoleController extends Controller
     public function update(RoleStoreRequest $request, string $uuid)
     {
         try {
-            $updatedRole = $this->roleService->updateRole($request->validated(), $uuid);
+            $currentUser = auth('api')->user();
+            $updatedRole = $this->roleService->updateRole($request->validated(), $uuid, $currentUser);
 
             return $this->successResponse(
                 new RoleResource($updatedRole),
@@ -87,7 +89,8 @@ class RoleController extends Controller
     public function destroy(string $uuid)
     {
         try {
-            $this->roleService->deleteRole($uuid);
+            $currentUser = auth('api')->user();
+            $this->roleService->deleteRole($uuid, $currentUser);
 
             return $this->successResponse(null, 'Role deleted successfully');
         } catch (AccessDeniedHttpException $e) {

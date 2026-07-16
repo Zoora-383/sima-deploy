@@ -18,7 +18,7 @@ Route::prefix('v1')->group(function () {
 
         // Auth routes — JWT required, force.password.change diizinkan agar user bisa change/logout/refresh
         Route::middleware([JwtCheckMiddleware::class])->group(function () {
-            Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:10,1');
+            Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:change-password');
             Route::post('/logout', [AuthController::class, 'logout'])->middleware('throttle:30,1');
             Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:10,1');
         });
@@ -29,8 +29,8 @@ Route::prefix('v1')->group(function () {
         // --- PROFILE & ACCOUNT ---
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::match(['put', 'patch'], '/profile', [ProfileController::class, 'update']);
-        Route::delete('/profile', [ProfileController::class, 'destroy']);
-        Route::put('/profile/reset-password', [ProfileController::class, 'updateMyPassword']);
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware('throttle:change-password');
+        Route::put('/profile/reset-password', [ProfileController::class, 'updateMyPassword'])->middleware('throttle:change-password');
 
         // --- NOTIFICATIONS ---
         Route::get('/notifications', [NotificationController::class, 'index']);
@@ -43,7 +43,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('role:super-admin')->group(function () {
             Route::apiResource('admin/users', UserController::class)->parameters(['users' => 'uuid']);
             Route::patch('/admin/users/{uuid}/status', [UserController::class, 'updateStatus']);
-            Route::post('/reset-password/{uuid}', [AuthController::class, 'resetPassword']);
+            Route::post('/reset-password/{uuid}', [AuthController::class, 'resetPassword'])->middleware('throttle:change-password');
         });
 
         // --- ROLES (SUPER ADMIN) ---
@@ -90,14 +90,16 @@ Route::prefix('v1')->group(function () {
             Route::patch('/maintenance/{uuid}/rekap', [MaintenanceController::class, 'updateRekap']);
         });
 
-        //  --- SPK (SURAT PERINTAH KERJA) ---
-        Route::get('/spk', [SpkController::class, 'index']);
-        Route::get('/spk/{uuid}', [SpkController::class, 'show']);
-        Route::get('/spk/{uuid}/pdf', [SpkController::class, 'exportPdf'])->middleware('throttle:5,1');
         Route::middleware('role:admin,kel_pust')->group(function () {
-            Route::post('/spk', [SpkController::class, 'store']);
-            Route::patch('/spk/{uuid}', [SpkController::class, 'update']);
-            Route::delete('/spk/{uuid}', [SpkController::class, 'destroy']);
+            //  --- SPK (SURAT PERINTAH KERJA) ---
+            Route::get('/spk', [SpkController::class, 'index']);
+            Route::get('/spk/{uuid}', [SpkController::class, 'show']);
+            Route::get('/spk/{uuid}/pdf', [SpkController::class, 'exportPdf'])->middleware('throttle:5,1');
+            Route::middleware('role:kel_pust')->group(function () {
+                Route::post('/spk', [SpkController::class, 'store']);
+                Route::patch('/spk/{uuid}', [SpkController::class, 'update']);
+                Route::delete('/spk/{uuid}', [SpkController::class, 'destroy']);
+            });
         });
     });
 });

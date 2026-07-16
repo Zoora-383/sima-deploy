@@ -30,6 +30,11 @@ class ChangeMyPasswordRequest extends FormRequest
                 'string',
                 function ($attribute, $value, $fail) use ($user) {
                     if (!$user || !Hash::check($value, $user->password)) {
+                        \Illuminate\Support\Facades\Log::warning('SECURITY: Gagal verifikasi kata sandi (Change Password)', [
+                            'user_id' => $user?->id,
+                            'email' => $user?->email,
+                            'ip' => request()->ip(),
+                        ]);
                         $fail('Password lama yang Anda masukkan salah.');
                     }
                 }

@@ -17,7 +17,7 @@ class ParseMultipartPutRequest
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->isMethod('PUT') || $request->isMethod('PATCH')) {
-            if (!empty($request->allFiles())) {
+            if ($request->files->count() > 0) {
                 $enabledFiles = $this->enableTestMode($request->files->all());
                 $request->files->replace($enabledFiles);
             } elseif (str_contains($request->header('Content-Type', ''), 'multipart/form-data')) {
@@ -32,10 +32,7 @@ class ParseMultipartPutRequest
                     $enabledFiles = $this->enableTestMode($fileBag->all());
                     $request->files->add($enabledFiles);
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('ParseMultipartPutRequest exception:', [
-                        'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
+                    \Illuminate\Support\Facades\Log::warning('Failed to parse multipart PUT/PATCH request.');
                 }
             }
         }
@@ -54,7 +51,7 @@ class ParseMultipartPutRequest
     {
         foreach ($files as $key => $value) {
             if ($value instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
-                $files[$key] = new \Symfony\Component\HttpFoundation\File\UploadedFile(
+                $files[$key] = new \Illuminate\Http\UploadedFile(
                     $value->getPathname(),
                     $value->getClientOriginalName(),
                     $value->getClientMimeType(),

@@ -287,10 +287,10 @@ class ItemService
                 }
             }
 
-            $imagePath = $item->image_item;
+            $oldImagePath = $item->image_item;
+            $newImagePath = null;
             if ($file) {
-                $this->deleteOldImage($imagePath);
-                $imagePath = $this->uploadImage($file, 'items');
+                $newImagePath = $this->uploadImage($file, 'items');
             }
 
             $needsNewCode = (isset($data['type']) && $data['type'] !== $item->type)
@@ -310,7 +310,7 @@ class ItemService
                 'name'        => $data['name']        ?? $item->name,
                 'type'        => $data['type']         ?? $item->type,
                 'units' => ($data['type'] ?? $item->type) === 'logistic' ? ($data['units'] ?? $item->units) : null,
-                'image_item'  => $imagePath,
+                'image_item'  => $newImagePath ?? $oldImagePath,
                 'location'    => $data['location']     ?? $item->location,
                 'description' => $data['description']  ?? $item->description,
                 'status'      => $newStatus,
@@ -321,11 +321,24 @@ class ItemService
             }
 
             DB::commit();
+
+            // Safe Deletion: Delete old image only after successful DB commit
+            if ($newImagePath && $oldImagePath) {
+                $this->deleteOldImage($oldImagePath);
+            }
+
             return $item->fresh(['user:id,username', 'category:id,name']);
         } catch (NotFoundHttpException | \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            if (isset($newImagePath) && $newImagePath) {
+                $this->deleteOldImage($newImagePath);
+            }
             throw $e;
         } catch (Exception $e) {
             DB::rollBack();
+            // Compensation: Delete new image if it was uploaded but transaction failed
+            if (isset($newImagePath) && $newImagePath) {
+                $this->deleteOldImage($newImagePath);
+            }
             throw new Exception("Failed to update item: " . $e->getMessage());
         }
     }
@@ -385,27 +398,63 @@ class ItemService
      */
     public function updateStatus(string $itemUuid, array $data, User $currentUser): Item
     {
-        $item = Item::where('uuid', $itemUuid)->first();
+        try {
+            DB::beginTransaction();
 
-        if (!$item) {
-            throw new NotFoundHttpException('Item not found.');
-        }
+            // Retrieve the item with a write lock (lockForUpdate) to prevent concurrent modifications
+            $item = Item::where('uuid', $itemUuid)->lockForUpdate()->first();
 
-        if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
-            throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update the status of this item.');
-        }
+            if (!$item) {
+                throw new NotFoundHttpException('Item not found.');
+            }
 
-        $statusFrom = $item->status;
-        $statusTo   = $data['status'];
+            if ($currentUser->role->name === 'admin' && $item->user_id !== $currentUser->id) {
+                throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('You do not have permission to update the status of this item.');
+            }
 
-        // Map 'rejected' from request to 'revision' in database if necessary
-        if ($statusTo === 'rejected') {
-            $statusTo = 'revision';
-        }
+            $statusFrom = $item->status;
+            $statusTo   = $data['status'];
 
-        // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting an item revised by kel_pust
-        if ($currentUser->role->name === 'admin' && $statusTo === 'pending_kasi') {
-            if ($statusFrom === 'revision') {
+            // Map 'rejected' from request to 'revision' in database if necessary
+            if ($statusTo === 'rejected') {
+                $statusTo = 'revision';
+            }
+
+            // Map 'pending_kasi' to 'pending_pust' for role 'admin' when resubmitting an item revised by kel_pust
+            if ($currentUser->role->name === 'admin' && $statusTo === 'pending_kasi') {
+                if ($statusFrom === 'revision') {
+                    $lastRevisionLog = $item->approvalLogs()
+                        ->where('status_to', 'revision')
+                        ->orderByDesc('id')
+                        ->first();
+
+                    $rejectedByKelPust = false;
+                    if ($lastRevisionLog && $lastRevisionLog->user && $lastRevisionLog->user->role) {
+                        if ($lastRevisionLog->user->role->name === 'kel_pust') {
+                            $rejectedByKelPust = true;
+                        }
+                    }
+
+                    if ($rejectedByKelPust) {
+                        $statusTo = 'pending_pust';
+                    }
+                }
+            }
+
+            $roleTransitions = [
+                'admin'    => [
+                    'draft'    => ['pending_kasi'],
+                    'revision' => ['pending_kasi'],
+                ],
+                'kasi'     => [
+                    'pending_kasi' => ['pending_pust', 'revision'],
+                ],
+                'kel_pust' => [
+                    'pending_pust' => ['active', 'revision'],
+                ],
+            ];
+
+            if ($currentUser->role->name === 'admin' && $statusFrom === 'revision') {
                 $lastRevisionLog = $item->approvalLogs()
                     ->where('status_to', 'revision')
                     ->orderByDesc('id')
@@ -419,53 +468,17 @@ class ItemService
                 }
 
                 if ($rejectedByKelPust) {
-                    $statusTo = 'pending_pust';
-                }
-            }
-        }
-
-        $roleTransitions = [
-            'admin'    => [
-                'draft'    => ['pending_kasi'],
-                'revision' => ['pending_kasi'],
-            ],
-            'kasi'     => [
-                'draft'        => ['pending_pust'],
-                'pending_kasi' => ['pending_pust', 'revision'],
-            ],
-            'kel_pust' => [
-                'pending_pust' => ['active', 'revision'],
-            ],
-        ];
-
-        if ($currentUser->role->name === 'admin' && $statusFrom === 'revision') {
-            $lastRevisionLog = $item->approvalLogs()
-                ->where('status_to', 'revision')
-                ->orderByDesc('id')
-                ->first();
-
-            $rejectedByKelPust = false;
-            if ($lastRevisionLog && $lastRevisionLog->user && $lastRevisionLog->user->role) {
-                if ($lastRevisionLog->user->role->name === 'kel_pust') {
-                    $rejectedByKelPust = true;
+                    $roleTransitions['admin']['revision'] = ['pending_pust'];
                 }
             }
 
-            if ($rejectedByKelPust) {
-                $roleTransitions['admin']['revision'] = ['pending_pust'];
+            $allowed = $roleTransitions[$currentUser->role->name][$statusFrom] ?? [];
+
+            if (!in_array($statusTo, $allowed)) {
+                throw new \InvalidArgumentException(
+                    "Anda tidak memiliki izin untuk melakukan transisi status ini."
+                );
             }
-        }
-
-        $allowed = $roleTransitions[$currentUser->role->name][$statusFrom] ?? [];
-
-        if (!in_array($statusTo, $allowed)) {
-            throw new \InvalidArgumentException(
-                "Anda tidak memiliki izin untuk melakukan transisi status ini."
-            );
-        }
-
-        try {
-            DB::beginTransaction();
 
             $updateData = ['status' => $statusTo];
 
@@ -473,7 +486,8 @@ class ItemService
                 $updateData['approved_by'] = $currentUser->id;
             }
 
-             $item->update($updateData);
+            $item->update($updateData);
+
             $this->recordLog($item, $statusFrom, $statusTo, $data['note'] ?? null, $currentUser->id);
 
             // Notification Trigger
@@ -495,7 +509,7 @@ class ItemService
             return $item->fresh(['approvalLogs.user', 'category', 'user.userProfile']);
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to update item status: " . $e->getMessage());
+            throw $e;
         }
     }
 }

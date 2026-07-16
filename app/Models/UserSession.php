@@ -34,6 +34,11 @@ class UserSession extends Model
         'last_activity'
     ];
 
+    protected $hidden = [
+        'jti',
+        'device_info'
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

@@ -13,6 +13,15 @@ class FileController extends Controller
      */
     public function show(Request $request, string $folder, string $filename): StreamedResponse
     {
+        // 1. Prevent path traversal attacks
+        if (
+            str_contains($folder, '..') || str_contains($filename, '..') ||
+            str_contains($folder, '/') || str_contains($filename, '/') ||
+            str_contains($folder, '\\') || str_contains($filename, '\\')
+        ) {
+            abort(400, 'Invalid file path.');
+        }
+
         $user = $request->user();
         $path = "{$folder}/{$filename}";
 

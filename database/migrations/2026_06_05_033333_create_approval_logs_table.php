@@ -14,7 +14,7 @@ return new class extends Migration
         if (!Schema::hasTable('approval_logs')) {
             Schema::create('approval_logs', function (Blueprint $table) {
                 $table->id();
-                $table->char('uuid', 36);
+                $table->uuid('uuid')->unique();
                 $table->string('approvable_type');
                 $table->unsignedBigInteger('approvable_id');
                 $table->unsignedBigInteger('user_id');

@@ -23,16 +23,9 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        \Illuminate\Support\Facades\Log::info('Avatar upload check:', [
-            'has_file' => $this->hasFile('avatar'),
-            'file_instance' => $this->file('avatar') ? get_class($this->file('avatar')) : null,
-            'error_code' => $this->file('avatar')?->getError(),
-            'error_message' => $this->file('avatar')?->getErrorMessage(),
-            'is_valid' => $this->file('avatar')?->isValid(),
-        ]);
 
         // Mengambil ID user yang sedang login via API Guard
-        $userId = auth('api')->id(); 
+        $userId = auth('api')->id();
 
         return [
             'email' => [

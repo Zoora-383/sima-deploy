@@ -17,26 +17,15 @@ use Illuminate\Support\Str;
  * @property string $status_from
  * @property string $status_to
  * @property string|null $note
+ * @property array|null $actor_snapshot
+ * @property array|null $data_snapshot
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Model|\Eloquent $approvable
  * @property-read \App\Models\User|null $user
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereApprovableId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereApprovableType($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereNote($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereStatusFrom($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereStatusTo($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereUpdatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereUserId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|ApprovalLog whereUuid($value)
  * @mixin \Eloquent
  */
-#[Fillable(['uuid', 'approvable_id', 'approvable_type', 'user_id', 'status_from', 'status_to', 'note'])]
+#[Fillable(['uuid', 'approvable_id', 'approvable_type', 'user_id', 'status_from', 'status_to', 'note', 'actor_snapshot', 'data_snapshot'])]
 class ApprovalLog extends Model
 {
     protected static function boot(): void
@@ -48,6 +37,23 @@ class ApprovalLog extends Model
                 $model->uuid = Str::uuid()->toString();
             }
         });
+
+        // Enforce append-only audit trail at the model level
+        static::updating(function ($model) {
+            throw new \Exception("Audit logs are append-only and cannot be updated.");
+        });
+
+        static::deleting(function ($model) {
+            throw new \Exception("Audit logs are append-only and cannot be deleted.");
+        });
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'actor_snapshot' => 'array',
+            'data_snapshot' => 'array',
+        ];
     }
 
     public function approvable(): MorphTo

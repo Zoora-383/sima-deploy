@@ -18,7 +18,7 @@ class UserProfileResource extends JsonResource
             'fullname' => $this->userProfile->fullname ?? null,
             'phone'    => $this->userProfile->phone    ?? null,
             'location' => $this->userProfile->location ?? null,
-            'avatar'   => $this->userProfile->avatar_url ?? null,
+            'avatar'   => \App\Traits\SecureImageUpload::getPresignedUrl($this->userProfile->avatar_url ?? null),
         ];
     }
 }

@@ -17,7 +17,7 @@ class MaintenanceItemResource extends JsonResource
         return [
             'uuid'                  => $this->uuid,
             'nama_item'             => $this->nama_item,
-            'image_item'            => $this->image_item,
+            'image_item'            => \App\Traits\SecureImageUpload::getPresignedUrl($this->image_item),
             'qty'                   => $this->qty,
             'satuan'                => $this->satuan,
             'estimasi_biaya_satuan' => (float) $this->estimasi_biaya_satuan,

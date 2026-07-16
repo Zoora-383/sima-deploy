@@ -117,7 +117,8 @@ class SpkController extends Controller
     public function exportPdf(string $uuid)
     {
         try {
-            $pdfStream = $this->SPKService->generateSpkPdf($uuid);
+            $currentUser = auth('api')->user();
+            $pdfStream = $this->SPKService->generateSpkPdf($uuid, $currentUser);
 
             return response($pdfStream, 200)
                 ->header('Content-Type', 'application/pdf')
@@ -125,7 +126,7 @@ class SpkController extends Controller
         } catch (NotFoundHttpException $e) {
             return $this->errorResponse($e->getMessage(), 404);
         } catch (Exception $e) {
-            Log::error('SPK PDF Export Error: ' . $e->getMessage());
+            Log::error('SPK PDF Export Error: An unexpected error occurred.');
             return $this->errorResponse('Gagal mengunduh dokumen SPK.', 500);
         }
     }

@@ -24,7 +24,7 @@ class UserDetailResource extends JsonResource
                 'fullname'  => $this->userProfile->fullname ?? null,
                 'phone'      => $this->userProfile->phone ?? null,
                 'location'   => $this->userProfile->location ?? null,
-                'avatar_url' => $this->userProfile->avatar_url ?? null,
+                'avatar_url' => \App\Traits\SecureImageUpload::getPresignedUrl($this->userProfile->avatar_url ?? null),
             ],
             'created_at' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s') : null,
             'updated_at' => $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s') : null,

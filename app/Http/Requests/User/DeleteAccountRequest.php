@@ -30,6 +30,11 @@ class DeleteAccountRequest extends FormRequest
                 'string',
                 function ($attribute, $value, $fail) use ($user) {
                     if (!$user || !Hash::check($value, $user->password)) {
+                        \Illuminate\Support\Facades\Log::warning('SECURITY: Gagal verifikasi kata sandi (Delete Account)', [
+                            'user_id' => $user?->id,
+                            'email' => $user?->email,
+                            'ip' => request()->ip(),
+                        ]);
                         $fail('Password yang Anda masukkan salah. Penghapusan akun dibatalkan.');
                     }
                 },

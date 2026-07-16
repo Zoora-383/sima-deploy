@@ -15,3 +15,11 @@ Schedule::command(CleanupExpiredSessions::class, ['--hours=24'])
     ->at('00:00')
     ->withoutOverlapping()
     ->runInBackground();
+
+// Bersihkan data SIMA yang kedaluwarsa secara berkala setiap hari pukul 01:00
+Schedule::command('sima:clean-expired-data')
+    ->daily()
+    ->at('01:00')
+    ->withoutOverlapping()
+    ->runInBackground();
+

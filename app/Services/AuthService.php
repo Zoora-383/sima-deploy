@@ -103,6 +103,8 @@ class AuthService
                 'force_password_change' => true,
             ]);
 
+            UserSession::where('user_id', $user->id)->delete();
+
             DB::commit();
             return $user->fresh(['role', 'userProfile']);
         } catch (Exception $e) {
@@ -134,6 +136,8 @@ class AuthService
                 'password'              => Hash::make($newPassword),
                 'force_password_change' => false,
             ]);
+
+            UserSession::where('user_id', $user->id)->delete();
 
             DB::commit();
             return $user->fresh();

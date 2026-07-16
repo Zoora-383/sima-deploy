@@ -120,34 +120,30 @@ class UserService
      */
     public function deleteUser(string $userUuid, User $currentUser)
     {
-        $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
-
-        if (!$user) {
-            throw new NotFoundHttpException('User not found.');
-        }
-
-        // 1. Prevent self-deletion
-        if ($currentUser->id === $user->id) {
-            throw new AccessDeniedHttpException('Anda tidak dapat menghapus akun Anda sendiri.');
-        }
-
-        // 2. Prevent deleting the last active super-admin
-        if ($user->role->name === 'super-admin') {
-            $activeSuperAdminCount = User::whereHas('role', function ($q) {
-                $q->where('name', 'super-admin');
-            })->where('is_active', true)->count();
-
-            if ($activeSuperAdminCount <= 1 && $user->is_active) {
-                throw new AccessDeniedHttpException('Sistem harus memiliki setidaknya satu Super Admin yang aktif.');
-            }
-        }
-
         try {
+            DB::beginTransaction();
+
+            $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->lockForUpdate()->first();
+
+            if (!$user) {
+                throw new NotFoundHttpException('User not found.');
+            }
+
+            // 1. Prevent self-deletion
+            if ($currentUser->id === $user->id) {
+                throw new AccessDeniedHttpException('Anda tidak dapat menghapus akun Anda sendiri.');
+            }
+
+            // 2. Prevent deleting the last active super-admin (Invariant Check)
+            $this->validateSuperAdminInvariant($user->id, 'delete');
+
             $user->delete();
 
+            DB::commit();
             return $user;
         } catch (Exception $e) {
-            throw new Exception("Failed to delete user: " . $e->getMessage());
+            DB::rollBack();
+            throw $e;
         }
     }
 
@@ -160,28 +156,23 @@ class UserService
      */
     public function updateUser(array $data, string $userUuid, User $currentUser)
     {
-        $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
-
-        if (!$user) {
-            throw new NotFoundHttpException('User not found.');
-        }
-
         try {
             DB::beginTransaction();
+
+            $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->lockForUpdate()->first();
+
+            if (!$user) {
+                throw new NotFoundHttpException('User not found.');
+            }
+
             $userData = [];
 
             if (isset($data['role_uuid'])) {
                 $role = Role::where('uuid', $data['role_uuid'])->first();
                 if ($role) {
-                    // Prevent changing own role if it's the last super-admin
-                    if ($user->id === $currentUser->id && $user->role->name === 'super-admin' && $role->name !== 'super-admin') {
-                        $activeSuperAdminCount = User::whereHas('role', function ($q) {
-                            $q->where('name', 'super-admin');
-                        })->where('is_active', true)->count();
-
-                        if ($activeSuperAdminCount <= 1) {
-                            throw new AccessDeniedHttpException('Anda tidak dapat mengubah role Anda sendiri karena Anda adalah satu-satunya Super Admin aktif.');
-                        }
+                    // Prevent changing role if it's the last active super-admin (Invariant Check)
+                    if ($user->role->name === 'super-admin' && $role->name !== 'super-admin') {
+                        $this->validateSuperAdminInvariant($user->id, 'change_role');
                     }
                     $userData['role_id'] = $role->id;
                 }
@@ -213,7 +204,7 @@ class UserService
             return $user->fresh(['role', 'userProfile']);
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to update user: " . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -229,30 +220,24 @@ class UserService
      */
     public function updateUserStatus(string $userUuid, bool $status, User $currentUser)
     {
-        $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->first();
-
-        if (!$user) {
-            throw new NotFoundHttpException('User not found.');
-        }
-
-        // 1. Prevent self-deactivation
-        if ($currentUser->id === $user->id && $status === false) {
-            throw new AccessDeniedHttpException('Anda tidak dapat menonaktifkan akun Anda sendiri.');
-        }
-
-        // 2. Prevent deactivating the last active super-admin
-        if ($user->role->name === 'super-admin' && $status === false) {
-            $activeSuperAdminCount = User::whereHas('role', function ($q) {
-                $q->where('name', 'super-admin');
-            })->where('is_active', true)->count();
-
-            if ($activeSuperAdminCount <= 1) {
-                throw new AccessDeniedHttpException('Sistem harus memiliki setidaknya satu Super Admin yang aktif.');
-            }
-        }
-
         try {
             DB::beginTransaction();
+
+            $user = User::with('role', 'userProfile')->where('uuid', $userUuid)->lockForUpdate()->first();
+
+            if (!$user) {
+                throw new NotFoundHttpException('User not found.');
+            }
+
+            // 1. Prevent self-deactivation
+            if ($currentUser->id === $user->id && $status === false) {
+                throw new AccessDeniedHttpException('Anda tidak dapat menonaktifkan akun Anda sendiri.');
+            }
+
+            // 2. Prevent deactivating the last active super-admin (Invariant Check)
+            if ($status === false) {
+                $this->validateSuperAdminInvariant($user->id, 'deactivate');
+            }
 
             $user->update(['is_active' => $status]);
 
@@ -264,12 +249,9 @@ class UserService
             DB::commit();
 
             return $user;
-        } catch (AccessDeniedHttpException $e) {
-            DB::rollBack();
-            throw $e;
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception("Failed to update user status: " . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -298,11 +280,11 @@ class UserService
 
             // 2. Handle Avatar Upload
             $existingProfile = $currentUser->userProfile;
-            $avatarPath = $existingProfile?->avatar_url;
+            $oldAvatarPath = $existingProfile?->avatar_url;
+            $newAvatarPath = null;
 
             if ($file) {
-                $this->deleteFileFromS3($avatarPath);
-                $avatarPath = $this->secureUpload($file, 'avatars');
+                $newAvatarPath = $this->secureUpload($file, 'avatars');
             }
 
             // 3. Update or Create Profile Detail
@@ -313,14 +295,24 @@ class UserService
                     'fullname'   => $data['fullname']     ?? $existingProfile?->fullname,
                     'phone'      => $data['phone']        ?? $existingProfile?->phone,
                     'location'   => $data['location']     ?? $existingProfile?->location,
-                    'avatar_url' => $avatarPath,
+                    'avatar_url' => $newAvatarPath ?? $oldAvatarPath,
                 ]
             );
 
             DB::commit();
+
+            // Safe Deletion: Delete old avatar only after successful DB commit
+            if ($newAvatarPath && $oldAvatarPath) {
+                $this->deleteFileFromS3($oldAvatarPath);
+            }
+
             return $profile;
         } catch (Exception $e) {
             DB::rollBack();
+            // Compensation: Delete new avatar if it was uploaded but transaction failed
+            if (isset($newAvatarPath) && $newAvatarPath) {
+                $this->deleteFileFromS3($newAvatarPath);
+            }
             throw $e;
         }
     }
@@ -348,16 +340,24 @@ class UserService
      */
     public function deleteMyAccount(string $userUuid)
     {
-        $user = User::where('uuid', $userUuid)->first();
-
-        if (!$user) {
-            throw new NotFoundHttpException('Account not found.');
-        }
-
         try {
+            DB::beginTransaction();
+
+            $user = User::where('uuid', $userUuid)->lockForUpdate()->first();
+
+            if (!$user) {
+                throw new NotFoundHttpException('Account not found.');
+            }
+
+            // Invariant check: prevent deleting the last active super-admin
+            $this->validateSuperAdminInvariant($user->id, 'delete');
+
             $user->delete();
+
+            DB::commit();
         } catch (Exception $e) {
-            throw new Exception("Failed to delete account: " . $e->getMessage());
+            DB::rollBack();
+            throw $e;
         }
     }
 
@@ -383,6 +383,37 @@ class UserService
         } catch (Exception $e) {
             DB::rollBack();
             throw new Exception("Failed to change password: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Validate that we are not removing the last active super-admin.
+     *
+     * @param int $targetUserId
+     * @param string $action
+     * @return void
+     * @throws AccessDeniedHttpException
+     */
+    private function validateSuperAdminInvariant(int $targetUserId, string $action): void
+    {
+        $targetUser = User::with('role')->find($targetUserId);
+        if (!$targetUser) {
+            return;
+        }
+
+        if ($targetUser->role->name === 'super-admin') {
+            // Lock all active super admins to prevent concurrent deactivations/deletions/role changes
+            $activeSuperAdmins = User::whereHas('role', function ($q) {
+                $q->where('name', 'super-admin');
+            })->where('is_active', true)->lockForUpdate()->get();
+
+            $activeSuperAdminCount = $activeSuperAdmins->count();
+
+            $isTargetActiveSuperAdmin = $targetUser->is_active;
+
+            if ($isTargetActiveSuperAdmin && $activeSuperAdminCount <= 1) {
+                throw new AccessDeniedHttpException('Sistem harus memiliki setidaknya satu Super Admin yang aktif.');
+            }
         }
     }
 }

@@ -21,7 +21,7 @@ class ItemDetailResource extends JsonResource
             'type'         => $this->type,
             'status'       => $this->status,
             'units'        => $this->units,
-            'image'        => $this->image_item,
+            'image'        => \App\Traits\SecureImageUpload::getPresignedUrl($this->image_item),
             'location'     => $this->location,
             'description'  => $this->description,
             'category'     => $this->category->name ?? null,
