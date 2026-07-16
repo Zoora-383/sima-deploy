@@ -2,19 +2,51 @@
 
 namespace App\Traits;
 
-use Illuminate\Http\File;
-use Illuminate\Support\Facades\Storage;
+use Cloudinary\Api\Upload\UploadApi;
+use Cloudinary\Configuration\Configuration;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 trait SecureImageUpload
 {
     /**
-     * Re-encode image to strip metadata and upload to S3.
-     * 
+     * Boot Cloudinary SDK and return UploadApi instance.
+     */
+    private function bootCloudinary(): UploadApi
+    {
+        $config = [
+            'cloud' => [
+                'cloud_name' => config('services.cloudinary.cloud_name'),
+                'api_key'    => config('services.cloudinary.api_key'),
+                'api_secret' => config('services.cloudinary.api_secret'),
+            ],
+            'url' => ['secure' => true],
+        ];
+
+        // Only set custom SSL cert path if it exists (local dev)
+        $certPath = env('CURL_CA_BUNDLE');
+        if ($certPath && file_exists($certPath)) {
+            $config['api'] = [
+                'curl_options' => [
+                    CURLOPT_CAINFO => $certPath,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                    CURLOPT_SSL_VERIFYHOST => 2,
+                ],
+            ];
+        }
+
+        Configuration::instance($config);
+
+        return new UploadApi();
+    }
+
+    /**
+     * Re-encode image, strip metadata, and upload to Cloudinary.
+     *
      * @param \Illuminate\Http\UploadedFile $file
      * @param string $folder
-     * @param string|null $disk
-     * @return string
+     * @param string $disk (ignored, kept for signature compatibility)
+     * @return string Cloudinary secure_url
      */
     protected function secureUpload($file, string $folder, string $disk = 's3'): string
     {
@@ -92,56 +124,88 @@ trait SecureImageUpload
             throw new \Symfony\Component\HttpKernel\Exception\BadRequestHttpException('Gagal melakukan kompresi dan re-encoding gambar.');
         }
 
-        $filename = Str::uuid() . '.webp';
-        $path = Storage::disk($disk)->putFileAs($folder, new File($tempFile), $filename, 'private');
-        unlink($tempFile);
-
-        return Storage::disk($disk)->url($path);
-    }
-
-    /**
-     * Generate a short-lived presigned URL for a private S3 file.
-     * 
-     * @param string|null $url
-     * @param string $disk
-     * @return string|null
-     */
-    public static function getPresignedUrl(?string $url, string $disk = 's3'): ?string
-    {
-        if (!$url) return null;
-
+        // Upload to Cloudinary
         try {
-            $baseUrl = Storage::disk($disk)->url('');
-            if (strpos($url, $baseUrl) === false) {
-                return $url;
-            }
-            $filePath = str_replace($baseUrl, '', $url);
-            $filePath = ltrim($filePath, '/');
+            $api = $this->bootCloudinary();
 
-            return Storage::disk($disk)->temporaryUrl($filePath, now()->addMinutes(15));
+            $response = $api->upload($tempFile, [
+                'folder'        => $folder,
+                'public_id'     => Str::uuid()->toString(),
+                'resource_type' => 'image',
+                'format'        => 'webp',
+                'overwrite'     => true,
+            ]);
+
+            unlink($tempFile);
+
+            return $response['secure_url'];
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::warning("Failed to generate presigned URL: " . $e->getMessage());
-            return $url;
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
+            Log::error("Cloudinary Upload Error: " . $e->getMessage());
+            throw new \Symfony\Component\HttpKernel\Exception\BadRequestHttpException('Gagal mengunggah gambar: ' . $e->getMessage());
         }
     }
 
     /**
-     * Delete old image from S3.
+     * For Cloudinary URLs, just return them directly (they are already publicly accessible via signed URL).
+     * No presigned URL needed — Cloudinary handles access control via its own URL signing.
+     *
+     * @param string|null $url
+     * @param string $disk (ignored, kept for signature compatibility)
+     * @return string|null
+     */
+    public static function getPresignedUrl(?string $url, string $disk = 's3'): ?string
+    {
+        // Cloudinary URLs are already accessible, return as-is
+        return $url;
+    }
+
+    /**
+     * Delete image from Cloudinary by extracting public_id from URL.
      *
      * @param string|null $imageUrl
-     * @param string $disk
+     * @param string $disk (ignored, kept for signature compatibility)
      * @return void
      */
     protected function deleteFileFromS3(?string $imageUrl, string $disk = 's3'): void
     {
         if (!$imageUrl) return;
 
-        try {
-            $baseUrl = Storage::disk($disk)->url('');
-            $filePath = str_replace($baseUrl, '', $imageUrl);
-            Storage::disk($disk)->delete($filePath);
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::warning("Failed to delete file from S3: {$imageUrl} - " . $e->getMessage());
+        // Extract public_id from Cloudinary URL
+        // URL format: https://res.cloudinary.com/{cloud}/image/upload/v1234567890/{folder}/{public_id}.webp
+        $pattern = '/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/';
+
+        if (preg_match($pattern, $imageUrl, $matches)) {
+            $publicId = $matches[1];
+
+            try {
+                $config = [
+                    'cloud' => [
+                        'cloud_name' => config('services.cloudinary.cloud_name'),
+                        'api_key'    => config('services.cloudinary.api_key'),
+                        'api_secret' => config('services.cloudinary.api_secret'),
+                    ],
+                    'url' => ['secure' => true],
+                ];
+
+                $certPath = env('CURL_CA_BUNDLE');
+                if ($certPath && file_exists($certPath)) {
+                    $config['api'] = [
+                        'curl_options' => [
+                            CURLOPT_CAINFO => $certPath,
+                            CURLOPT_SSL_VERIFYPEER => true,
+                            CURLOPT_SSL_VERIFYHOST => 2,
+                        ],
+                    ];
+                }
+
+                Configuration::instance($config);
+                (new UploadApi())->destroy($publicId);
+            } catch (\Exception $e) {
+                Log::warning("Cloudinary delete failed: {$imageUrl} - " . $e->getMessage());
+            }
         }
     }
 }

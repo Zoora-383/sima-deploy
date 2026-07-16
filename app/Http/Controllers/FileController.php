@@ -3,15 +3,18 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Http\RedirectResponse;
 
 class FileController extends Controller
 {
     /**
-     * Serve private file — hanya bisa diakses pemiliknya
+     * Serve private file — hanya bisa diakses pemiliknya.
+     * 
+     * Dengan Cloudinary, file sudah tersimpan di cloud dan memiliki URL langsung.
+     * Controller ini memvalidasi kepemilikan lalu redirect ke Cloudinary URL.
      */
-    public function show(Request $request, string $folder, string $filename): StreamedResponse
+    public function show(Request $request, string $folder, string $filename): RedirectResponse
     {
         // 1. Prevent path traversal attacks
         if (
@@ -25,16 +28,12 @@ class FileController extends Controller
         $user = $request->user();
         $path = "{$folder}/{$filename}";
 
-        // Cek apakah file exist di bucket
-        if (!Storage::disk('s3')->exists($path)) {
-            abort(404, 'File tidak ditemukan.');
-        }
-
         // Cek kepemilikan — pastikan path ada di profile user ini
         $this->authorizeAccess($user, $path);
 
-        // Stream file langsung ke response
-        return Storage::disk('s3')->response($path);
+        // Redirect ke Cloudinary URL yang tersimpan di profile
+        $profile = $user->userProfile;
+        return redirect()->away($profile->avatar_url);
     }
 
     /**
@@ -49,17 +48,10 @@ class FileController extends Controller
             abort(403, 'Akses ditolak.');
         }
 
-        // Ambil path dari URL yang tersimpan di DB
-        $storedUrl  = $profile->avatar_url ?? '';
-        $storedPath = parse_url($storedUrl, PHP_URL_PATH);
-        $storedPath = ltrim($storedPath, '/');
+        $storedUrl = $profile->avatar_url ?? '';
 
-        // Hapus bucket name dari path kalau ada
-        // contoh: "sima-app/sima-app/avatars/xxx.jpg" → "sima-app/avatars/xxx.jpg"
-        $bucketName = config('filesystems.disks.s3.bucket');
-        $storedPath = preg_replace('#^' . preg_quote($bucketName, '#') . '/#', '', $storedPath);
-
-        if ($storedPath !== $path) {
+        // Untuk Cloudinary, cek apakah path (folder/filename) ada di dalam URL
+        if (empty($storedUrl) || !str_contains($storedUrl, $path)) {
             abort(403, 'Akses ditolak.');
         }
     }
